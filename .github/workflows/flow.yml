@@ -23,20 +23,64 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Fetch flow (CEX net + order-book depth)
-        run: python3 fetch_flow.py     # stdlib only, no pip install
+      - name: Install deps
+        run: pip install openpyxl     # for the KUB_Holders_Daily.xlsx viewer sheet
 
-      - name: Commit fresh data
+      # Raw per-day activity address sets are privacy-sensitive, so they are NEVER
+      # committed to the (public) repo. They live only here, in the Actions cache,
+      # so the 7-day rolling window survives between runs. restore-keys grabs the
+      # most recent previous cache; each run saves a fresh entry under its run id.
+      - name: Restore activity state (private cache, not published)
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            activity_days
+            activity_state.json
+          key: kub-activity-${{ github.run_id }}
+          restore-keys: |
+            kub-activity-
+
+      - name: Holders — daily EOA summary (native + KKUB, excl. CEX/Fund/Reserve)
+        run: python3 daily_summary.py
+
+      - name: Active wallets — 7-day on-chain activity (unique EOA + top contracts)
+        env:
+          ACT_MAX_PAGES: "5000"       # high cap so the first run seeds the full 7-day window
+        run: |
+          python3 fetch_activity.py
+          python3 build_activity.py
+
+      - name: Flow — daily CEX net + order-book depth + on-chain DEX net
+        run: python3 fetch_flow.py
+
+      - name: Save activity state (private cache)
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            activity_days
+            activity_state.json
+          key: kub-activity-${{ github.run_id }}
+
+      - name: Commit fresh aggregate data
         run: |
           git config user.name  "kub-flow-bot"
           git config user.email "actions@github.com"
-          git add flow_data.js flow_state.json
+          git add flow_data.js flow_state.json \
+                  daily_summary.csv daily_data.js KUB_Holders_Daily.xlsx \
+                  activity_data.js
           if git diff --cached --quiet; then
             echo "no change today"
           else
-            git commit -m "flow: $(date -u +%F)"
+            git commit -m "data: $(date -u +%F) — flow + holders + activity"
             git push
           fi
+
+      # upload-pages-artifact ignores .gitignore and publishes whatever is on disk,
+      # so remove the privacy-sensitive raw address sets (restored from cache) before
+      # publishing. They remain safe in the Actions cache for the next run.
+      - name: Strip private files from the published artifact
+        run: rm -rf activity_days activity_state.json __pycache__ ./*.log
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

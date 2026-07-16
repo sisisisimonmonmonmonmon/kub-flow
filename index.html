@@ -78,6 +78,14 @@
     padding: 6px 11px; border: 1px solid var(--line-2); border-radius: 9px; background: var(--surface); }
   .dexTog:hover { border-color: var(--muted); color: var(--ink); }
   .dexTog input { width: 15px; height: 15px; margin: 0; accent-color: var(--buy-bar); cursor: pointer; }
+  .pnav { display: flex; gap: 3px; align-items: center; flex-wrap: wrap; }
+  .pnav a, .pnav .soon { font-size: 13px; font-weight: 600; text-decoration: none; padding: 6px 11px;
+    border-radius: 9px; color: var(--ink-2); border: 1px solid transparent; white-space: nowrap; }
+  .pnav a:hover { background: var(--surface-2); color: var(--ink); }
+  .pnav a.on { background: var(--buy-wash); color: var(--buy); }
+  .pnav .soon { color: var(--muted); cursor: default; display: inline-flex; align-items: center; gap: 5px; }
+  .pnav .soon i { font-style: normal; font-size: 9px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .03em; background: var(--line); color: var(--muted); padding: 1px 5px; border-radius: 5px; }
 
   main { max-width: 1180px; margin: 0 auto; padding: 24px; }
 
@@ -192,6 +200,12 @@
       <div class="mark">฿</div>
       <div><h1>KUB Flow</h1><p>KUB buy/sell pressure · CEX + DEX combined</p></div>
     </div>
+    <nav class="pnav">
+      <a href="index.html" class="on">Flow</a>
+      <a href="kub-holders-daily.html">Holders</a>
+      <a href="kub-activity.html">Active Wallets</a>
+      <span class="soon">TVL<i>soon</i></span>
+    </nav>
     <div class="grow"></div>
     <div class="status" id="status"><span class="dot"></span><span id="statusText">Loading…</span></div>
     <label class="dexTog" title="Include on-chain DEX swaps in the net"><input type="checkbox" id="dexToggle" checked /> <span>+ DEX</span></label>

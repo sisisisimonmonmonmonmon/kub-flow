@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KUB Chain — Holder KPI Monitor</title>
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#121821; --panel2:#0e141c; --line:#1f2a37; --line2:#151d28;
+    --txt:#e6edf3; --muted:#8b98a5; --dim:#5d6b78;
+    --green:#2fd27d; --accent:#4da3ff; --amber:#f5b83d; --red:#ff6b6b; --purple:#c39bf0;
+    --mono:'SF Mono',SFMono-Regular,Menlo,Consolas,monospace;
+    --ease:cubic-bezier(.22,1,.36,1);
+    --z-tt:60;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:
+      radial-gradient(1100px 500px at 82% -8%, #0f1a17 0%, transparent 60%),
+      var(--bg);
+    color:var(--txt);font:14px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    padding:22px 26px 64px;min-height:100vh}
+  h1{font-size:20px;font-weight:700;letter-spacing:-.01em}
+  h1 .kub{color:var(--green)}
+  .sub{color:var(--muted);font-size:12px;margin-top:3px}
+  header{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:16px}
+  .mono{font-family:var(--mono)}
+  .up{color:var(--green)} .down{color:var(--red)} .flat{color:var(--dim)}
+  button{background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--txt);
+    padding:8px 12px;font-size:13px;cursor:pointer;transition:border-color .15s,background .15s,color .15s}
+  button:hover{border-color:var(--accent)}
+  button.primary{border-color:#245b3d;color:var(--green)}
+  button.primary:hover{background:#12271c;border-color:var(--green)}
+
+  .pnav{display:flex;gap:3px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+  .pnav a,.pnav .soon{font-size:13px;font-weight:600;text-decoration:none;padding:6px 11px;border-radius:9px;color:var(--muted);border:1px solid transparent;white-space:nowrap}
+  .pnav a:hover{background:var(--panel2);color:var(--txt)}
+  .pnav a.on{background:#12271c;color:var(--green);border-color:#245b3d}
+  .pnav .soon{color:var(--dim);cursor:default;display:inline-flex;align-items:center;gap:5px}
+  .pnav .soon i{font-style:normal;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;background:var(--line);color:var(--dim);padding:1px 5px;border-radius:5px}
+
+  /* ---------- highlight strip ---------- */
+  .highlights{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+  .hl{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);
+    border-radius:999px;padding:7px 14px 7px 12px;font-size:12.5px;color:var(--txt)}
+  .hl .dot{width:7px;height:7px;border-radius:50%;flex:none}
+  .hl b{font-family:var(--mono);font-weight:600}
+  .hl.good .dot{background:var(--green);box-shadow:0 0 8px #2fd27d88}
+  .hl.bad  .dot{background:var(--red);box-shadow:0 0 8px #ff6b6b88}
+  .hl.info .dot{background:var(--accent);box-shadow:0 0 8px #4da3ff88}
+  .hl.warn .dot{background:var(--amber);box-shadow:0 0 8px #f5b83d88}
+
+  /* ---------- console layout ---------- */
+  .console{display:grid;grid-template-columns:284px 1fr;gap:16px;align-items:start}
+  .rail{display:flex;flex-direction:column;gap:6px;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;padding:8px}
+  .rail .rh{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;padding:8px 10px 4px}
+  .kpi{display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto;gap:1px 8px;
+    align-items:center;padding:10px 12px;border-radius:9px;cursor:pointer;border:1px solid transparent;
+    transition:background .15s,border-color .15s}
+  .kpi:hover{background:#0f1620}
+  .kpi.active{background:#0e1a15;border-color:#245b3d}
+  .kpi .lbl{font-size:12.5px;color:var(--muted);grid-column:1;grid-row:1}
+  .kpi.active .lbl{color:var(--txt)}
+  .kpi .val{font-family:var(--mono);font-size:16px;font-weight:700;grid-column:1;grid-row:2;line-height:1.2}
+  .kpi .val small{font-size:10px;color:var(--dim);font-weight:400;margin-left:3px}
+  .kpi .chg{grid-column:2;grid-row:2;font-family:var(--mono);font-size:11.5px;text-align:right;white-space:nowrap}
+  .kpi .spark{grid-column:2;grid-row:1;width:56px;height:16px}
+  .kpi.active .marker{color:var(--green)}
+
+  /* ---------- chart panel ---------- */
+  .stage{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px 14px;
+    min-width:0}
+  .stagehead{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+  .stagehead .title{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .stagehead .big{font-family:var(--mono);font-size:30px;font-weight:700;line-height:1.15;letter-spacing:-.02em}
+  .stagehead .big small{font-size:14px;color:var(--dim);font-weight:400;margin-left:6px}
+  .stagehead .rowchg{font-family:var(--mono);font-size:13px;margin-top:2px}
+  .tools{display:flex;gap:14px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+  .seg{display:inline-flex;background:var(--panel2);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{border:0;border-radius:0;background:transparent;color:var(--muted);padding:6px 13px;font-family:var(--mono);font-size:12px}
+  .seg button+button{border-left:1px solid var(--line)}
+  .seg button.on{background:#12271c;color:var(--green)}
+  .seg button:hover:not(.on){color:var(--txt)}
+  .tgt{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+  .tgt input{background:var(--panel2);border:1px solid var(--line);border-radius:7px;color:var(--txt);
+    padding:6px 9px;font-family:var(--mono);font-size:12px;width:96px}
+  .tgt input:focus{outline:none;border-color:var(--amber)}
+  .tgt .x{cursor:pointer;color:var(--dim);padding:2px 4px}
+  .tgt .x:hover{color:var(--red)}
+
+  .chartwrap{position:relative;margin-top:8px}
+  #chart{display:block;width:100%;touch-action:none}
+  .grid{stroke:var(--line2);stroke-width:1}
+  .zero{stroke:var(--line);stroke-width:1}
+  .axlbl{fill:var(--dim);font:11px var(--mono)}
+  .tgtline{stroke:var(--amber);stroke-width:1.3;stroke-dasharray:5 4;opacity:.85}
+  .tgttxt{fill:var(--amber);font:11px var(--mono)}
+  .cross{stroke:var(--muted);stroke-width:1;stroke-dasharray:3 3;opacity:0;transition:opacity .1s}
+  .hoverdot{opacity:0;transition:opacity .1s}
+  .tt{position:absolute;z-index:var(--z-tt);pointer-events:none;opacity:0;transform:translate(-50%,-115%);
+    background:#0c141d;border:1px solid var(--line);border-radius:9px;padding:8px 11px;
+    box-shadow:0 8px 26px #0009;transition:opacity .1s;white-space:nowrap;min-width:120px}
+  .tt .d{color:var(--muted);font-size:11px;font-family:var(--mono);margin-bottom:3px}
+  .tt .v{font-family:var(--mono);font-size:15px;font-weight:700}
+  .tt .dd{font-family:var(--mono);font-size:11.5px;margin-top:2px}
+
+  .statstrip{display:flex;flex-wrap:wrap;gap:22px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line2)}
+  .stat .k{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .stat .v{font-family:var(--mono);font-size:15px;font-weight:600;margin-top:2px}
+
+  /* ---------- table ---------- */
+  .tablepanel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-top:16px}
+  .tablepanel h2{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;text-align:right;
+    padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:default}
+  th.l,td.l{text-align:left}
+  td{padding:7px 10px;border-bottom:1px solid var(--line2);text-align:right;font-family:var(--mono);white-space:nowrap}
+  td .sd{font-size:10px}
+  tbody tr:hover td{background:#0f1620}
+  .note{color:var(--dim);font-size:11px;margin-top:16px;line-height:1.6}
+  #loading{padding:60px;text-align:center;color:var(--muted)}
+  #err{padding:40px;text-align:center;color:var(--amber);font-size:13px;line-height:1.7}
+
+  @media(max-width:880px){
+    body{padding:18px 16px 50px}
+    .console{grid-template-columns:1fr}
+    .rail{flex-direction:row;overflow-x:auto;padding:8px}
+    .rail .rh{display:none}
+    .kpi{min-width:190px;flex:none}
+  }
+  @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<nav class="pnav">
+  <a href="index.html">Flow</a>
+  <a href="kub-holders-daily.html" class="on">Holders</a>
+  <a href="kub-activity.html">Active Wallets</a>
+  <span class="soon">TVL<i>soon</i></span>
+</nav>
+<header>
+  <div>
+    <h1><span class="kub">KUB</span> Chain — Holder KPI Monitor</h1>
+    <div class="sub" id="updated">loading…</div>
+  </div>
+  <div style="display:flex;gap:8px">
+    <button class="primary" onclick="exportCsv()">⬇ Export CSV</button>
+  </div>
+</header>
+
+<div id="loading">กำลังโหลดข้อมูล…</div>
+<div id="err" style="display:none"></div>
+
+<div id="app" style="display:none">
+  <div class="highlights" id="highlights"></div>
+
+  <div class="console">
+    <aside class="rail" id="rail"><div class="rh">KPI · คลิกเพื่อดูกราฟ</div></aside>
+
+    <section class="stage">
+      <div class="stagehead">
+        <div>
+          <div class="title" id="stTitle"></div>
+          <div class="big" id="stBig"></div>
+          <div class="rowchg" id="stChg"></div>
+        </div>
+        <div class="tools">
+          <div class="seg" id="rangeSeg">
+            <button data-r="7">7 วัน</button>
+            <button data-r="30">30 วัน</button>
+            <button data-r="all">ทั้งหมด</button>
+          </div>
+          <div class="tgt">
+            <span>เป้า</span>
+            <input type="number" id="tgtInput" placeholder="—" step="any">
+            <span class="x" id="tgtClear" title="ล้างเป้า">✕</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="chartwrap" id="chartwrap">
+        <svg id="chart"></svg>
+        <div class="tt" id="tt"></div>
+      </div>
+
+      <div class="statstrip" id="statstrip"></div>
+    </section>
+  </div>
+
+  <div class="tablepanel">
+    <h2>Day-by-day · ล่าสุดอยู่บนสุด · <span style="text-transform:none">Δ = เทียบวันก่อนหน้า</span></h2>
+    <div style="overflow-x:auto">
+    <table>
+      <thead><tr>
+        <th class="l">Date</th>
+        <th>EOA holders</th><th>Total KUB</th><th>Average</th><th>Median</th>
+        <th>Top 10 %</th><th>Top 100 %</th><th>Native</th><th>KKUB</th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    </div>
+  </div>
+
+  <div class="note" id="footnote"></div>
+</div>
+
+<script src="daily_data.js"></script>
+<script>
+// ============ metric definitions ============
+// good: +1 = up is good (green), -1 = down is good, 0 = neutral (blue)
+const METRICS = [
+  {k:'eoa_holders',      lbl:'EOA holders (≥1 KUB)', unit:'',    dec:0, good:+1},
+  {k:'total_kub',        lbl:'Total held',           unit:'KUB', dec:0, good:+1},
+  {k:'average_kub',      lbl:'Average / wallet',     unit:'KUB', dec:2, good:+1},
+  {k:'median_kub',       lbl:'Median',               unit:'KUB', dec:2, good:+1},
+  {k:'top10_share_pct',  lbl:'Top 10 share',         unit:'%',   dec:2, good:-1},
+  {k:'top100_share_pct', lbl:'Top 100 share',        unit:'%',   dec:2, good:-1},
+  {k:'native_kub',       lbl:'Native KUB',           unit:'KUB', dec:0, good: 0},
+  {k:'kkub',             lbl:'KKUB (Wrapped)',       unit:'KUB', dec:0, good: 0},
+];
+const M = Object.fromEntries(METRICS.map(m=>[m.k,m]));
+const PRIMARY = ['eoa_holders','total_kub','average_kub','median_kub','top10_share_pct'];
+const COLOR = {up:'#2fd27d', down:'#ff6b6b', flat:'#4da3ff'};
+
+let FULL=[], RANGE='all', ACTIVE='eoa_holders', HERO=null;
+let targets = loadTargets();
+
+// ============ helpers ============
+function fmt(n,d=2){return (n==null||isNaN(n))?'—':Number(n).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d})}
+function fmtShort(v){
+  const a=Math.abs(v);
+  if(a>=1e6) return (v/1e6).toFixed(a>=1e7?1:2)+'M';
+  if(a>=1e3) return (v/1e3).toFixed(a>=1e4?0:1)+'K';
+  return fmt(v, a<100?2:0);
+}
+// axis label: enough precision to keep adjacent gridlines distinct given the span
+function axisFmt(v,span){
+  const a=Math.abs(v);
+  if(a>=1e6){const d=span<1e5?3:(span<1e6?2:1);return (v/1e6).toFixed(d)+'M';}
+  if(a>=1e3){const d=span<1e3?2:(span<1e4?1:0);return (v/1e3).toFixed(d)+'K';}
+  return fmt(v, span<1?3:(span<10?2:0));
+}
+function loadTargets(){try{return JSON.parse(localStorage.getItem('kub_kpi_targets')||'{}')}catch(e){return {}}}
+function saveTargets(){localStorage.setItem('kub_kpi_targets',JSON.stringify(targets))}
+function rangeN(){return RANGE==='all'?FULL.length:Math.min(FULL.length,+RANGE)}
+function viewRows(){return FULL.slice(-rangeN())}
+function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
+
+// direction color for a value change, honoring whether up is good
+function dirColor(m,delta){
+  if(m.good===0||delta===0) return COLOR.flat;
+  return (delta>0)===(m.good>0)?COLOR.up:COLOR.down;
+}
+// signed delta text (arrow + magnitude), colored by good/bad
+function deltaHTML(m,cur,prev,{pct=false}={}){
+  if(prev==null) return '<span class="flat">—</span>';
+  const d=cur-prev;
+  const eps = m.dec? 5e-3 : 0.5;
+  if(Math.abs(d)<eps) return '<span class="flat">±0</span>';
+  const cls = m.good===0 ? 'flat' : ((d>0)===(m.good>0)?'up':'down');
+  const arrow = d>0?'▲':'▼';
+  const mag = pct && prev!==0 ? fmt(Math.abs(d/prev*100),2)+'%' : fmt(Math.abs(d),m.dec)+(m.unit?' '+m.unit:'');
+  return `<span class="${cls}">${arrow} ${mag}</span>`;
+}
+// consecutive same-direction run counting back from the latest day
+function streak(k){
+  const v=FULL.map(r=>r[k]); let n=v.length;
+  if(n<2) return {len:0,dir:0};
+  const s=Math.sign(v[n-1]-v[n-2]); if(s===0) return {len:0,dir:0};
+  let len=1;
+  for(let i=n-1;i>0;i--){ if(Math.sign(v[i]-v[i-1])===s) len++; else break; }
+  return {len,dir:s};
+}
+
+// ============ mini sparkline for the rail ============
+function spark(k){
+  const W=56,H=16,P=2, v=viewRows().map(r=>r[k]), n=v.length;
+  if(n<2) return `<svg class="spark" viewBox="0 0 ${W} ${H}"></svg>`;
+  const lo=Math.min(...v),hi=Math.max(...v),sp=(hi-lo)||1;
+  const x=i=>P+i*(W-2*P)/(n-1), y=val=>P+(1-(val-lo)/sp)*(H-2*P);
+  const m=M[k], col=dirColor(m, v[n-1]-v[0]);
+  const d=v.map((val,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(val).toFixed(1)).join(' ');
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    <path d="${d}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>`;
+}
+
+// ============ rail (KPI selector) ============
+function renderRail(){
+  const cur=FULL[FULL.length-1], prev=FULL[FULL.length-2]||null;
+  const rows=METRICS.map(m=>{
+    const active=m.k===ACTIVE;
+    return `<div class="kpi ${active?'active':''}" data-k="${m.k}" role="button" tabindex="0" aria-pressed="${active}">
+      <span class="lbl">${m.lbl}</span>
+      <span class="val">${fmt(cur[m.k],m.dec)}<small>${m.unit}</small></span>
+      ${spark(m.k)}
+      <span class="chg">${deltaHTML(m,cur[m.k],prev?prev[m.k]:null,{pct:true})}</span>
+    </div>`;
+  }).join('');
+  const rail=document.getElementById('rail');
+  rail.innerHTML='<div class="rh">KPI · คลิกเพื่อดูกราฟ</div>'+rows;
+  rail.querySelectorAll('.kpi').forEach(el=>{
+    const pick=()=>{ACTIVE=el.dataset.k;render()};
+    el.addEventListener('click',pick);
+    el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pick()}});
+  });
+}
+
+// ============ highlight strip (auto insights) ============
+function renderHighlights(){
+  const cur=FULL[FULL.length-1], prev=FULL[FULL.length-2]||null;
+  const items=[];
+  // 1) target proximity / breach
+  for(const k of PRIMARY){
+    const t=targets[k]; if(t==null||isNaN(t)) continue;
+    const m=M[k], v=cur[k], gap=v-t, hit=(m.good>0)?v>=t:v<=t;
+    const pct=t!==0?Math.abs(gap/t*100):0;
+    items.push({pri:0,cls:hit?'good':'warn',
+      html:`${m.lbl} <b>${hit?'ถึงเป้าแล้ว':'ห่างเป้า '+fmt(Math.abs(gap),m.dec)+' ('+fmt(pct,1)+'%)'}</b>`});
+  }
+  // 2) notable streaks (>=2 days one direction) among primaries
+  for(const k of PRIMARY){
+    const s=streak(k); if(s.len<2) continue;
+    const m=M[k], good=(s.dir>0)===(m.good>0);
+    items.push({pri: s.len>=3?1:3, cls:good?'good':'bad',
+      html:`${m.lbl} ${s.dir>0?'▲':'▼'} <b>${s.len} วันติด</b>`});
+  }
+  // 3) biggest single-day move today
+  if(prev){
+    let best=null;
+    for(const k of PRIMARY){
+      const m=M[k]; if(prev[k]===0) continue;
+      const pc=(cur[k]-prev[k])/prev[k]*100;
+      if(best==null||Math.abs(pc)>Math.abs(best.pc)) best={k,pc,m};
+    }
+    if(best && Math.abs(best.pc)>=0.1){
+      const good=(best.pc>0)===(best.m.good>0);
+      items.push({pri:2,cls:good?'good':'bad',
+        html:`วันนี้ ${best.m.lbl} ${best.pc>0?'▲':'▼'} <b>${fmt(Math.abs(best.pc),2)}%</b>`});
+    }
+  }
+  items.sort((a,b)=>a.pri-b.pri);
+  const top=items.slice(0,4);
+  const el=document.getElementById('highlights');
+  el.innerHTML = top.length
+    ? top.map(i=>`<div class="hl ${i.cls}"><span class="dot"></span><span>${i.html}</span></div>`).join('')
+    : `<div class="hl info"><span class="dot"></span><span>เก็บข้อมูลเพิ่มอีกไม่กี่วันจะเห็นสัญญาณ trend ชัดขึ้น</span></div>`;
+}
+
+// ============ the big interactive chart ============
+function drawChart(){
+  const m=M[ACTIVE], rows=viewRows(), vals=rows.map(r=>r[m.k]), dates=rows.map(r=>r.date), n=vals.length;
+  const wrap=document.getElementById('chartwrap');
+  // draw with a sane fallback if layout hasn't settled (clientWidth 0, e.g. offscreen);
+  // a ResizeObserver (set up in bindOnce) redraws at the true width once laid out
+  const W=Math.floor(wrap.clientWidth)||800;
+  const H = W<560?300:420;
+  const L=64,R=22,T=22,B=40;
+  const plotW=W-L-R, plotH=H-T-B;
+
+  // domain (include target if set), pad 8%
+  let lo=Math.min(...vals), hi=Math.max(...vals);
+  const tgt=targets[m.k];
+  if(tgt!=null&&!isNaN(tgt)){lo=Math.min(lo,tgt);hi=Math.max(hi,tgt)}
+  if(lo===hi){lo-= Math.abs(lo)*0.02||1; hi+= Math.abs(hi)*0.02||1}
+  const pad=(hi-lo)*0.08; lo-=pad; hi+=pad;
+  const x=i=> n<=1? L+plotW/2 : L+i*plotW/(n-1);
+  const y=v=> T+(1-(v-lo)/(hi-lo))*plotH;
+
+  const dir = n>1? vals[n-1]-vals[0] : 0;
+  const col = dirColor(m,dir);
+
+  // y gridlines (5)
+  const TICKS=5; let grid='';
+  for(let i=0;i<TICKS;i++){
+    const gv=lo+(hi-lo)*i/(TICKS-1), gy=y(gv);
+    grid+=`<line class="grid" x1="${L}" y1="${gy.toFixed(1)}" x2="${W-R}" y2="${gy.toFixed(1)}"/>
+           <text class="axlbl" x="${L-8}" y="${(gy+3.5).toFixed(1)}" text-anchor="end">${axisFmt(gv,hi-lo)}</text>`;
+  }
+  // x date ticks (thinned to ~7)
+  const step=Math.max(1,Math.ceil(n/7)); let xax='';
+  for(let i=0;i<n;i+=step){
+    xax+=`<text class="axlbl" x="${x(i).toFixed(1)}" y="${H-14}" text-anchor="middle">${dates[i].slice(5)}</text>`;
+  }
+  if((n-1)%step!==0 && n>1) xax+=`<text class="axlbl" x="${x(n-1).toFixed(1)}" y="${H-14}" text-anchor="middle">${dates[n-1].slice(5)}</text>`;
+
+  const pts=vals.map((v,i)=>[x(i),y(v)]);
+  const line=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+  const area=`M${x(0).toFixed(1)} ${(T+plotH).toFixed(1)} `+pts.map(p=>'L'+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ')+` L${x(n-1).toFixed(1)} ${(T+plotH).toFixed(1)} Z`;
+  const dots=pts.map((p,i)=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${i===n-1?4.5:3}" fill="${col}" stroke="var(--panel)" stroke-width="${i===n-1?2:1}"/>`).join('');
+
+  let tgtEl='';
+  if(tgt!=null&&!isNaN(tgt)){
+    const ty=y(tgt);
+    tgtEl=`<line class="tgtline" x1="${L}" y1="${ty.toFixed(1)}" x2="${W-R}" y2="${ty.toFixed(1)}"/>
+           <text class="tgttxt" x="${W-R}" y="${(ty-6).toFixed(1)}" text-anchor="end">เป้า ${fmt(tgt,m.dec)}</text>`;
+  }
+
+  document.getElementById('chart').setAttribute('viewBox',`0 0 ${W} ${H}`);
+  document.getElementById('chart').setAttribute('height',H);
+  document.getElementById('chart').innerHTML=`
+    <defs><linearGradient id="grad" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="${col}" stop-opacity=".26"/>
+      <stop offset="1" stop-color="${col}" stop-opacity="0"/>
+    </linearGradient></defs>
+    ${grid}${xax}${tgtEl}
+    <path d="${area}" fill="url(#grad)"/>
+    <path d="${line}" fill="none" stroke="${col}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+    ${dots}
+    <line class="cross" id="cross" x1="0" y1="${T}" x2="0" y2="${T+plotH}"/>
+    <circle class="hoverdot" id="hoverdot" r="5.5" fill="${col}" stroke="var(--bg)" stroke-width="2"/>
+  `;
+
+  HERO={m,rows,vals,dates,n,xs:pts.map(p=>p[0]),ys:pts.map(p=>p[1]),col,L,R,W,H,T,plotH};
+  attachHover();
+}
+
+function attachHover(){
+  const svg=document.getElementById('chart'), tt=document.getElementById('tt');
+  const cross=document.getElementById('cross'), hd=document.getElementById('hoverdot');
+  const move=e=>{
+    if(!HERO) return;
+    const cx=(e.touches?e.touches[0].clientX:e.clientX);
+    const r=svg.getBoundingClientRect();
+    if(!r.width) return;                            // not laid out yet
+    const mx=(cx-r.left)*(HERO.W/r.width);          // css px -> viewBox units
+    let idx=0,best=1e18;
+    for(let i=0;i<HERO.n;i++){const d=Math.abs(mx-HERO.xs[i]); if(d<best){best=d;idx=i}}
+    const px=HERO.xs[idx], py=HERO.ys[idx];
+    cross.setAttribute('x1',px);cross.setAttribute('x2',px);cross.style.opacity=1;
+    hd.setAttribute('cx',px);hd.setAttribute('cy',py);hd.style.opacity=1;
+    const m=HERO.m, v=HERO.vals[idx], prev=idx>0?HERO.vals[idx-1]:null;
+    tt.innerHTML=`<div class="d">${HERO.dates[idx]}</div>
+      <div class="v">${fmt(v,m.dec)} <small style="color:var(--dim);font-size:11px">${m.unit}</small></div>
+      <div class="dd">${deltaHTML(m,v,prev)} <span style="color:var(--dim)">vs วันก่อน</span></div>`;
+    // position tooltip in CSS px
+    const sx=px*(r.width/HERO.W), sy=py*(r.width/HERO.W);
+    tt.style.left=Math.max(60,Math.min(r.width-60,sx))+'px';
+    tt.style.top=sy+'px';
+    tt.style.opacity=1;
+  };
+  const leave=()=>{cross.style.opacity=0;hd.style.opacity=0;tt.style.opacity=0};
+  svg.onmousemove=move; svg.onmouseleave=leave;
+  svg.ontouchstart=move; svg.ontouchmove=e=>{e.preventDefault();move(e)}; svg.ontouchend=leave;
+}
+
+// ============ stage head + stat strip ============
+function renderStage(){
+  const m=M[ACTIVE], rows=viewRows(), n=rows.length;
+  const cur=FULL[FULL.length-1], prevDay=FULL[FULL.length-2]||null;
+  const first=rows[0];
+  document.getElementById('stTitle').textContent=m.lbl.toUpperCase();
+  document.getElementById('stBig').innerHTML=`${fmt(cur[m.k],m.dec)} <small>${m.unit}</small>`;
+  const rangeLbl = RANGE==='all'?`${n} วัน`:`${RANGE} วัน`;
+  document.getElementById('stChg').innerHTML=
+    `${deltaHTML(m,cur[m.k],prevDay?prevDay[m.k]:null)} <span style="color:var(--dim)">vs เมื่อวาน</span>`+
+    (n>1?`  ·  ${deltaHTML(m,cur[m.k],first[m.k],{pct:true})} <span style="color:var(--dim)">ใน ${rangeLbl}</span>`:'');
+
+  const vals=rows.map(r=>r[m.k]);
+  const min=Math.min(...vals),max=Math.max(...vals),avg=vals.reduce((a,b)=>a+b,0)/n;
+  const stats=[
+    ['ล่าสุด', fmt(cur[m.k],m.dec)],
+    [`เปลี่ยนใน ${rangeLbl}`, n>1?deltaHTML(m,cur[m.k],vals[0],{pct:true}):'—'],
+    ['ต่ำสุด', fmt(min,m.dec)],
+    ['สูงสุด', fmt(max,m.dec)],
+    ['เฉลี่ยช่วงนี้', fmt(avg,m.dec)],
+  ];
+  document.getElementById('statstrip').innerHTML=stats.map(s=>
+    `<div class="stat"><div class="k">${s[0]}</div><div class="v">${s[1]}</div></div>`).join('');
+
+  // target input reflects active metric
+  const ti=document.getElementById('tgtInput');
+  ti.value = targets[m.k]!=null && !isNaN(targets[m.k]) ? targets[m.k] : '';
+}
+
+// ============ table ============
+function renderTable(){
+  const cols=METRICS.slice();
+  const order=['eoa_holders','total_kub','average_kub','median_kub','top10_share_pct','top100_share_pct','native_kub','kkub'];
+  const rev=[...FULL].reverse();
+  document.getElementById('tbody').innerHTML=rev.map((r,i)=>{
+    const p=rev[i+1]||null;
+    const cells=order.map(k=>{const m=M[k];
+      return `<td>${fmt(r[k],m.dec)}<br><span class="sd">${deltaHTML(m,r[k],p?p[k]:null)}</span></td>`}).join('');
+    return `<tr><td class="l">${r.date}</td>${cells}</tr>`;
+  }).join('');
+}
+
+// ============ orchestration ============
+function render(){
+  renderHighlights();
+  renderRail();
+  renderStage();
+  drawChart();
+  renderTable();
+}
+
+function bindOnce(){
+  document.getElementById('updated').textContent=
+    `latest: ${FULL[FULL.length-1].date} · ${FULL.length} day(s) tracked · source: kubscan Blockscout API · excl. CEX + Ecosystem Fund + KUB Company Reserve`;
+  document.getElementById('footnote').textContent=
+    'หนึ่งแถว = หนึ่งวัน (Asia/Bangkok) · เก็บเฉพาะค่ารวม ไม่มีข้อมูลรายกระเป๋า · '+
+    'ตัดออก: CEX (Bitkub Exchange hot+cold) · Ecosystem Fund (SBDF + Ecosystem) · KUB Company Reserve · '+
+    'เป้าหมายเก็บใน localStorage ของเบราว์เซอร์นี้เท่านั้น';
+
+  document.querySelectorAll('#rangeSeg button').forEach(b=>{
+    b.classList.toggle('on', b.dataset.r===RANGE);
+    b.addEventListener('click',()=>{RANGE=b.dataset.r;
+      document.querySelectorAll('#rangeSeg button').forEach(x=>x.classList.toggle('on',x.dataset.r===RANGE));
+      render();});
+  });
+  const ti=document.getElementById('tgtInput');
+  const apply=()=>{const v=parseFloat(ti.value);
+    if(ti.value===''||isNaN(v)) delete targets[ACTIVE]; else targets[ACTIVE]=v;
+    saveTargets(); render();};
+  ti.addEventListener('change',apply);
+  ti.addEventListener('keydown',e=>{if(e.key==='Enter')ti.blur()});
+  document.getElementById('tgtClear').addEventListener('click',()=>{delete targets[ACTIVE];saveTargets();render()});
+
+  // redraw at true width once laid out, and on any resize — replaces window.resize
+  const wrap=document.getElementById('chartwrap');
+  let lastW=0;
+  if(window.ResizeObserver){
+    new ResizeObserver(()=>{const w=wrap.clientWidth; if(w && w!==lastW){lastW=w;drawChart()}}).observe(wrap);
+  }else{
+    let rt; window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(drawChart,120)});
+  }
+}
+
+function exportCsv(){
+  const head=['date',...METRICS.map(m=>m.k)].join(',');
+  const body=FULL.map(r=>[r.date,...METRICS.map(m=>r[m.k])].join(',')).join('\n');
+  const blob=new Blob([head+'\n'+body],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='kub_holders_daily.csv';a.click();
+}
+
+function boot(data){
+  FULL=[...data].sort((a,b)=>a.date<b.date?-1:1);
+  if(!FULL.length) throw new Error('empty');
+  document.getElementById('loading').style.display='none';
+  document.getElementById('app').style.display='block';
+  bindOnce();
+  render();
+}
+function showErr(msg){document.getElementById('loading').style.display='none';
+  const e=document.getElementById('err');e.style.display='block';e.innerHTML=msg}
+
+// primary: daily_data.js (<script>, works over file://); fallback: fetch CSV
+if(Array.isArray(window.DAILY_DATA)&&window.DAILY_DATA.length){
+  boot(window.DAILY_DATA);
+}else{
+  fetch('daily_summary.csv',{cache:'no-store'})
+    .then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.text()})
+    .then(txt=>{const L=txt.trim().split(/\r?\n/),h=L[0].split(',');
+      boot(L.slice(1).filter(x=>x.trim()).map(l=>{const c=l.split(','),o={};
+        h.forEach((k,i)=>o[k]=k==='date'?c[i]:parseFloat(c[i]));return o;}));})
+    .catch(err=>showErr(`โหลดข้อมูลไม่ได้ (${err.message}). ต้องมี <code>daily_data.js</code> อยู่โฟลเดอร์เดียวกัน — สร้างด้วย <code>python3 daily_summary.py</code>`));
+}
+</script>
+</body>
+</html>

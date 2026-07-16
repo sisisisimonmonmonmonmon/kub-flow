@@ -2,3 +2,21 @@ __pycache__/
 *.pyc
 .DS_Store
 .claude/
+
+# --- per-wallet / raw address data: NEVER publish (PDPA / privacy) ---
+# only aggregate files are committed: flow_data.js, daily_summary.csv,
+# daily_data.js, activity_data.js, KUB_Holders_Daily.xlsx
+*.jsonl
+eoa_data.js
+kubkak_data.js
+state.json
+
+# on-chain activity raw per-day EOA/contract address sets — privacy-sensitive.
+# These persist ONLY in the private GitHub Actions cache, never in the repo.
+activity_days/
+activity_state.json
+
+# logs / scratch
+*.log
+out.txt
+err.txt

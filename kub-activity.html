@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>KUB On-Chain Activity</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: oklch(0.984 0.004 255); --surface: oklch(1 0 0); --surface-2: oklch(0.972 0.004 255);
+    --line: oklch(0.918 0.006 255); --line-2: oklch(0.86 0.008 255);
+    --ink: oklch(0.23 0.014 265); --ink-2: oklch(0.42 0.013 265); --muted: oklch(0.54 0.011 265);
+    --green: oklch(0.55 0.14 156); --green-bar: oklch(0.63 0.16 156); --green-wash: oklch(0.955 0.045 156);
+    --accent: oklch(0.55 0.15 265);
+    --sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --shadow: 0 1px 2px oklch(0.2 0.02 265 / 0.04), 0 4px 16px oklch(0.2 0.02 265 / 0.05);
+    --r: 16px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  header { padding: 22px 24px 6px; max-width: 960px; margin: 0 auto; }
+  header h1 { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; margin: 0; }
+  header p { font-size: 12.5px; color: var(--muted); margin: 3px 0 0; }
+  main { max-width: 960px; margin: 0 auto; padding: 14px 24px 40px; display: flex; flex-direction: column; gap: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); padding: 22px 24px; }
+  .card .lbl { font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: 0.02em; text-transform: uppercase; }
+  .card .big { font-size: 46px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; margin: 8px 0 2px; }
+  .card .sub { font-size: 13px; color: var(--ink-2); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; }
+  .chip { font-size: 12.5px; color: var(--muted); }
+  .chip b { color: var(--ink-2); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  .spark { display: flex; align-items: flex-end; gap: 6px; height: 56px; margin-top: 16px; }
+  .spark .b { flex: 1; background: var(--green-wash); border-radius: 4px 4px 0 0; position: relative; min-height: 3px; display: flex; flex-direction: column; justify-content: flex-end; }
+  .spark .b .fill { background: var(--green-bar); border-radius: 4px 4px 0 0; width: 100%; }
+  .spark .b.today .fill { background: var(--green); }
+  .spark-x { display: flex; gap: 6px; margin-top: 5px; }
+  .spark-x span { flex: 1; text-align: center; font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  ol.contracts { list-style: none; margin: 14px 0 0; padding: 0; }
+  ol.contracts li { display: flex; align-items: center; gap: 14px; padding: 11px 0; border-top: 1px solid var(--line); }
+  ol.contracts li:first-child { border-top: none; }
+  .rank { width: 26px; height: 26px; flex: none; border-radius: 8px; background: var(--surface-2); color: var(--ink-2); font-weight: 700; font-size: 13px; display: grid; place-items: center; }
+  li:nth-child(1) .rank { background: var(--green-wash); color: var(--green); }
+  .cinfo { flex: 1; min-width: 0; }
+  .cname { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cname a { color: inherit; text-decoration: none; }
+  .cname a:hover { color: var(--accent); text-decoration: underline; }
+  .caddr { font-size: 11.5px; color: var(--muted); font-family: ui-monospace, Menlo, monospace; }
+  .cmetric { text-align: right; flex: none; }
+  .cmetric .u { font-size: 18px; font-weight: 700; color: var(--green); font-variant-numeric: tabular-nums; }
+  .cmetric .t { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .fill-note { margin-top: 10px; font-size: 12px; color: oklch(0.5 0.13 75); background: oklch(0.96 0.05 85); border-radius: 8px; padding: 7px 11px; display: inline-block; }
+  footer { max-width: 960px; margin: 0 auto; padding: 4px 24px 30px; font-size: 11.5px; color: var(--muted); line-height: 1.6; }
+  footer b { color: var(--ink-2); }
+  .pnav { display: flex; gap: 3px; align-items: center; flex-wrap: wrap; margin: 0 0 14px; }
+  .pnav a, .pnav .soon { font-size: 13px; font-weight: 600; text-decoration: none; padding: 6px 11px;
+    border-radius: 9px; color: var(--ink-2); border: 1px solid transparent; white-space: nowrap; }
+  .pnav a:hover { background: var(--surface-2); color: var(--ink); }
+  .pnav a.on { background: var(--green-wash); color: var(--green); }
+  .pnav .soon { color: var(--muted); cursor: default; display: inline-flex; align-items: center; gap: 5px; }
+  .pnav .soon i { font-style: normal; font-size: 9px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .03em; background: var(--line); color: var(--muted); padding: 1px 5px; border-radius: 5px; }
+</style>
+</head>
+<body>
+  <header>
+    <nav class="pnav">
+      <a href="index.html">Flow</a>
+      <a href="kub-holders-daily.html">Holders</a>
+      <a href="kub-activity.html" class="on">Active Wallets</a>
+      <span class="soon">TVL<i>soon</i></span>
+    </nav>
+    <h1>KUB On-Chain Activity</h1>
+    <p id="meta">—</p>
+  </header>
+  <main>
+    <div class="card">
+      <div class="lbl">KUB Coin · EOA Holders</div>
+      <div class="big tnum" id="holders">—</div>
+      <div class="sub" id="holdersSub">—</div>
+      <div class="chips" id="holderChips"></div>
+    </div>
+
+    <div class="card">
+      <div class="lbl">Active EOA On-Chain · last 7 days</div>
+      <div class="big tnum" id="active">—</div>
+      <div class="sub">unique EOAs that sent ≥ 1 transaction in the last 7 days</div>
+      <div class="spark" id="spark"></div>
+      <div class="spark-x" id="sparkX"></div>
+      <div id="fillNote"></div>
+    </div>
+
+    <div class="card">
+      <div class="lbl">Most Contracts Users Interact With · last 7 days</div>
+      <ol class="contracts" id="contracts"></ol>
+    </div>
+  </main>
+  <footer>
+    <b>Method:</b> daily server snapshot from kubscan (Blockscout) — a 7-day rolling window. <b>Active EOA</b> = unique non-contract senders. <b>Top contracts</b> ranked by unique EOA users (tx count shown too). EOA holder count = wallets holding ≥ 1 KUB (native + KKUB), excluding CEX / Ecosystem Fund / KUB Company Reserve. For analysis only.
+  </footer>
+
+<script src="activity_data.js"></script>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const nf = (v) => (v == null || !isFinite(v)) ? "—" : Math.round(v).toLocaleString("en-US");
+const shortAddr = (a) => a ? a.slice(0, 6) + "…" + a.slice(-4) : "";
+const D = window.ACTIVITY || null;
+
+function render(d){
+  if(!d){ $("meta").textContent = "No data yet — run the daily snapshot."; return; }
+  const gen = d.generatedAt ? new Date(d.generatedAt) : null;
+  $("meta").textContent = `KUB Chain · ${d.daysCovered}/${d.windowDays}-day window` +
+    (gen ? ` · updated ${gen.toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}` : "");
+
+  // Card 1 — holders
+  $("holders").textContent = nf(d.eoaHolders);
+  $("holdersSub").textContent = `hold ≥ 1 KUB · excl. CEX / Ecosystem Fund / KUB Company Reserve` + (d.eoaHoldersDate ? ` · as of ${d.eoaHoldersDate}` : "");
+  $("holderChips").innerHTML =
+    (d.totalKub!=null ? `<span class="chip">Total held <b>${nf(d.totalKub)}</b> KUB</span>` : "") +
+    (d.kkubHolders!=null ? `<span class="chip">KKUB holders <b>${nf(d.kkubHolders)}</b></span>` : "") +
+    (d.totalAddresses!=null ? `<span class="chip">All addresses (chain) <b>${nf(d.totalAddresses)}</b></span>` : "");
+
+  // Card 2 — active EOA + sparkline
+  $("active").textContent = nf(d.activeEoa7d);
+  const days = d.activeByDay || [];
+  const max = Math.max(1, ...days.map(x=>x.count));
+  $("spark").innerHTML = days.map((x,i)=>`<div class="b ${i===days.length-1?'today':''}" title="${x.date}: ${nf(x.count)} active EOA"><div class="fill" style="height:${(x.count/max*100).toFixed(0)}%"></div></div>`).join("");
+  $("sparkX").innerHTML = days.map(x=>`<span>${x.date.slice(5)}</span>`).join("");
+  if(d.daysCovered < d.windowDays)
+    $("fillNote").innerHTML = `<div class="fill-note">⏳ window still filling — ${d.daysCovered}/${d.windowDays} days collected so far</div>`;
+
+  // Card 3 — top contracts
+  const top = (d.topContracts||[]).slice(0,4);
+  $("contracts").innerHTML = top.length ? top.map((c,i)=>{
+    const label = c.name ? c.name : shortAddr(c.addr);
+    const link = `https://www.kubscan.com/address/${c.addr}`;
+    return `<li><div class="rank">${i+1}</div>`+
+      `<div class="cinfo"><div class="cname"><a href="${link}" target="_blank" rel="noopener">${label}</a></div>`+
+      `<div class="caddr">${c.addr}</div></div>`+
+      `<div class="cmetric"><div class="u">${nf(c.users)}</div><div class="t">users · ${nf(c.tx)} tx</div></div></li>`;
+  }).join("") : `<li style="color:var(--muted);padding:16px 0">No data yet.</li>`;
+}
+render(D);
+</script>
+</body>
+</html>
