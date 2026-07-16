@@ -45,7 +45,7 @@ jobs:
 
       - name: Active wallets — 7-day on-chain activity (unique EOA + top contracts)
         env:
-          ACT_MAX_PAGES: "5000"       # high cap so the first run seeds the full 7-day window
+          ACT_MAX_PAGES: "1500"       # first run seeds ~2 days fast; the 7-day window fills over the following days
         run: |
           python3 fetch_activity.py
           python3 build_activity.py
