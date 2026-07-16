@@ -137,6 +137,11 @@
   .head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
   .head h2 { font-size: 15px; font-weight: 700; margin: 0; letter-spacing: -0.015em; }
   .head .sub { font-size: 12px; color: var(--muted); }
+  .headr { display: flex; align-items: center; gap: 12px; }
+  .seg { display: inline-flex; gap: 2px; padding: 2px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 9px; }
+  .seg button { font: inherit; font-size: 12px; font-weight: 600; color: var(--muted); background: transparent; border: 0; border-radius: 7px; padding: 4px 11px; cursor: pointer; transition: background .15s, color .15s; }
+  .seg button:hover:not(.on) { color: var(--ink-2); }
+  .seg button.on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
   .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); }
   .panel .pad { padding: 16px 18px; }
 
@@ -234,10 +239,16 @@
 
     <!-- WEEKLY TREND -->
     <section>
-      <div class="head"><h2>Weekly Trend</h2><span class="sub" id="wkSub">—</span></div>
+      <div class="head">
+        <h2 id="wkTitle">Weekly Trend</h2>
+        <div class="headr">
+          <div class="seg" id="trendSeg"><button type="button" data-m="week">Weekly</button><button type="button" data-m="day">Daily</button></div>
+          <span class="sub" id="wkSub">—</span>
+        </div>
+      </div>
       <div class="panel">
         <div class="chartbox pad" id="wkChart"><div class="empty">Collecting…</div></div>
-        <div class="legend"><span><i style="background:var(--buy-bar)"></i>Net-buy week</span><span><i style="background:var(--sell-bar)"></i>Net-sell week</span><span class="muted">Rightmost = this week</span></div>
+        <div class="legend"><span><i style="background:var(--buy-bar)"></i>Net-buy</span><span><i style="background:var(--sell-bar)"></i>Net-sell</span><span class="muted">Rightmost = latest</span></div>
       </div>
     </section>
 
@@ -292,6 +303,7 @@ const dayFmt = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok", year
 const dayKeyTs = (tsSec) => dayFmt.format(new Date(tsSec * 1000));
 function weekStart(dk){ const d=new Date(dk+"T00:00:00Z"); const off=(d.getUTCDay()+6)%7; d.setUTCDate(d.getUTCDate()-off); return d.toISOString().slice(0,10); }
 let INCLUDE_DEX = localStorage.getItem("kubflow_dex") !== "0";   // default ON
+let TREND = localStorage.getItem("kubflow_trend") === "day" ? "day" : "week";  // trend chart granularity
 let LAST = null;                                                 // {hist, todayCex} — re-render on toggle without refetch
 
 async function fetchHistory(){
@@ -353,6 +365,7 @@ async function tick(){ if(busy)return; busy=true; $("syncBtn").textContent="↻ 
   finally{ busy=false; $("syncBtn").textContent="↻ Sync"; }
 }
 function setDex(on){ INCLUDE_DEX=on; localStorage.setItem("kubflow_dex", on?"1":"0"); if(LAST) render(combine(LAST.hist, LAST.todayCex)); }
+function setTrend(mode){ TREND=mode; localStorage.setItem("kubflow_trend", mode); if(LAST) render(combine(LAST.hist, LAST.todayCex)); }
 
 function render(d){
   const w = d.weekly||[], dn = d.dailyNet||[];
@@ -417,9 +430,15 @@ function render(d){
       `<div class="q tnum">(${sThb(netQ)})</div>${delta}</div>`;
   }).join("");
 
-  // ---- WEEKLY CHART ----
-  $("wkSub").textContent = w.length? `${w.length} weeks · CEX+DEX`+(gapN?` · ${gapN} days ≈ may be incomplete`:"") : "";
-  $("wkChart").innerHTML = w.length? svgDiverge(w.slice(-14).map((x,i,a)=>({label:dayLbl(x.week), net:x.net, q:x.netQ, cur:i===a.length-1}))) : `<div class="empty">Collecting…</div>`;
+  // ---- TREND CHART (weekly / daily toggle) ----
+  const twk = TREND !== "day";
+  $("wkTitle").textContent = twk ? "Weekly Trend" : "Daily Trend";
+  const tsrc = twk ? w : dn;
+  const series = tsrc.slice(-14).map((x,i,a)=>({label: dayLbl(twk ? x.week : x.day), net:x.net, q:x.netQ, cur:i===a.length-1}));
+  const dexLbl = INCLUDE_DEX ? "CEX+DEX" : "CEX only";
+  $("wkSub").textContent = series.length ? `${twk ? w.length+" weeks" : "last "+series.length+" days"} · ${dexLbl}`+(gapN?` · ${gapN} days ≈ may be incomplete`:"") : "";
+  $("wkChart").innerHTML = series.length ? svgDiverge(series) : `<div class="empty">Collecting…</div>`;
+  document.querySelectorAll('#trendSeg button').forEach(b=>b.classList.toggle('on', b.dataset.m===TREND));
 
   // ---- DAILY (grouped by week) ----
   $("dSub").textContent = dn.length? `${dn.length} days · synced ${relTime(d.netUpdatedAt)}` : "";
@@ -500,6 +519,7 @@ function svgDepth(data){
 $("syncBtn").addEventListener("click", tick);
 $("dexToggle").checked = INCLUDE_DEX;
 $("dexToggle").addEventListener("change", (e)=> setDex(e.target.checked));
+document.querySelectorAll('#trendSeg button').forEach(b=> b.addEventListener("click", ()=> setTrend(b.dataset.m)));
 document.addEventListener("visibilitychange", ()=>{ if(!document.hidden && !window.__demo) tick(); });
 
 // ?demo=1 renders representative offline data (for design preview); real load runs the live sync loop.
