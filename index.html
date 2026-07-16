@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>KUB Flow · Weekly Buy/Sell Pressure</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    /* light, report-friendly, cool neutral (not cream) */
+    --bg:        oklch(0.984 0.004 255);
+    --surface:   oklch(1 0 0);
+    --surface-2: oklch(0.972 0.004 255);
+    --line:      oklch(0.918 0.006 255);
+    --line-2:    oklch(0.86 0.008 255);
+    --ink:       oklch(0.23 0.014 265);
+    --ink-2:     oklch(0.42 0.013 265);
+    --muted:     oklch(0.54 0.011 265);
+
+    --buy:        oklch(0.50 0.14 156);   /* buy/accumulation text (AA on white) */
+    --buy-bar:    oklch(0.63 0.16 156);   /* bar fill */
+    --buy-wash:   oklch(0.955 0.045 156);
+    --buy-line:   oklch(0.86 0.07 156);
+    --sell:       oklch(0.52 0.20 27);
+    --sell-bar:   oklch(0.62 0.22 27);
+    --sell-wash:  oklch(0.962 0.04 27);
+    --sell-line:  oklch(0.87 0.08 27);
+    --flat:       oklch(0.55 0.02 265);
+
+    --sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --shadow: 0 1px 2px oklch(0.2 0.02 265 / 0.04), 0 4px 16px oklch(0.2 0.02 265 / 0.05);
+    --r: 14px;
+
+    --z-header: 100;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); font-size: 14px; line-height: 1.5;
+    font-feature-settings: "cv05" 1, "ss01" 1;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  }
+  .tnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+  .pos { color: var(--buy); } .neg { color: var(--sell); }
+
+  /* ---------- header ---------- */
+  header {
+    position: sticky; top: 0; z-index: var(--z-header);
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 13px 24px; background: oklch(1 0 0 / 0.82); backdrop-filter: saturate(1.4) blur(8px);
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; align-items: center; gap: 11px; }
+  .brand .mark {
+    width: 30px; height: 30px; border-radius: 9px; background: var(--buy-bar);
+    display: grid; place-items: center; color: white; font-weight: 800; font-size: 16px;
+  }
+  .brand h1 { font-size: 15px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+  .brand p { font-size: 11.5px; color: var(--muted); margin: 1px 0 0; }
+  .grow { flex: 1; }
+  .status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--buy-bar); box-shadow: 0 0 0 0 var(--buy-bar); animation: pulse 2s ease-out infinite; }
+  .status.err .dot { background: var(--sell-bar); animation: none; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 oklch(0.63 0.16 156 / 0.4); } 70% { box-shadow: 0 0 0 6px oklch(0.63 0.16 156 / 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
+  .btn {
+    font: inherit; font-size: 12.5px; font-weight: 600; color: var(--ink-2);
+    background: var(--surface); border: 1px solid var(--line-2); border-radius: 9px;
+    padding: 7px 13px; cursor: pointer; transition: background .15s, border-color .15s, color .15s;
+  }
+  .btn:hover { background: var(--surface-2); color: var(--ink); border-color: var(--muted); }
+  .btn:active { transform: translateY(1px); }
+
+  main { max-width: 1180px; margin: 0 auto; padding: 24px; }
+
+  /* ---------- lead verdict ---------- */
+  .lead {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r);
+    box-shadow: var(--shadow); padding: 22px 24px; margin-bottom: 16px;
+    display: grid; grid-template-columns: 1.5fr 1fr; gap: 28px; align-items: center;
+  }
+  .lead .period { font-size: 12.5px; color: var(--muted); font-weight: 500; margin-bottom: 10px; }
+  .lead .period b { color: var(--ink-2); font-weight: 600; }
+  .verdict { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .verdict .badge {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.04em; padding: 4px 10px; border-radius: 999px;
+    text-transform: uppercase;
+  }
+  .verdict.sell .badge { color: var(--sell); background: var(--sell-wash); }
+  .verdict.buy  .badge { color: var(--buy);  background: var(--buy-wash); }
+  .verdict.flat .badge { color: var(--flat); background: var(--surface-2); }
+  .verdict .word { font-size: 21px; font-weight: 700; letter-spacing: -0.02em; }
+  .verdict.sell .word { color: var(--sell); } .verdict.buy .word { color: var(--buy); }
+  .lead .big { font-size: 42px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; margin: 6px 0 4px; }
+  .lead .big .u { font-size: 20px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+  .lead .thb { font-size: 14px; color: var(--ink-2); font-weight: 500; }
+  .lead .wow { margin-top: 14px; font-size: 13.5px; color: var(--ink-2); display: flex; align-items: center; gap: 7px; }
+  .lead .wow .arrow { font-weight: 700; }
+  .lead .wow .arrow.up { color: var(--buy); } .lead .wow .arrow.down { color: var(--sell); }
+
+  /* balance meter */
+  .balance .cap { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; margin-bottom: 7px; }
+  .balance .cap .b { color: var(--buy); } .balance .cap .s { color: var(--sell); }
+  .meter { height: 30px; border-radius: 8px; overflow: hidden; display: flex; background: var(--sell-bar); box-shadow: inset 0 0 0 1px var(--line); }
+  .meter .fill { background: var(--buy-bar); height: 100%; transition: width .5s cubic-bezier(0.22,1,0.36,1); display: grid; place-items: center; }
+  .meter .fill span { color: white; font-size: 11.5px; font-weight: 700; padding: 0 8px; white-space: nowrap; }
+  .balance .foot { margin-top: 8px; font-size: 12px; color: var(--muted); text-align: right; }
+  .balance .foot .s { color: var(--sell); font-weight: 600; }
+
+  /* ---------- comparison strip ---------- */
+  .compare { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 22px; }
+  .cell { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 13px 15px; }
+  .cell .k { font-size: 11px; color: var(--muted); font-weight: 600; margin-bottom: 6px; letter-spacing: 0.01em; }
+  .cell .v { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+  .cell .q { font-size: 12.5px; color: var(--ink-2); font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .cell .d { font-size: 11.5px; margin-top: 5px; font-weight: 600; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+  .cell .d.up { color: var(--buy); } .cell .d.down { color: var(--sell); } .cell .d.flat { color: var(--muted); }
+
+  /* ---------- sections ---------- */
+  section { margin-bottom: 22px; }
+  .head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .head h2 { font-size: 15px; font-weight: 700; margin: 0; letter-spacing: -0.015em; }
+  .head .sub { font-size: 12px; color: var(--muted); }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); }
+  .panel .pad { padding: 16px 18px; }
+
+  .chartbox { overflow-x: auto; }
+  .chartbox svg { display: block; margin: 0 auto; }
+  .legend { display: flex; gap: 16px; padding: 2px 18px 14px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+  .legend i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; margin-right: 6px; vertical-align: -1px; }
+
+  /* ---------- tables ---------- */
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  thead th {
+    text-align: right; padding: 10px 16px; font-size: 11px; font-weight: 600; color: var(--muted);
+    letter-spacing: 0.02em; border-bottom: 1px solid var(--line); white-space: nowrap; background: var(--surface);
+  }
+  thead th:first-child { text-align: left; }
+  tbody td { padding: 10px 16px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  tbody td:first-child { text-align: left; font-weight: 500; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--surface-2); }
+  .scroll { max-height: 400px; overflow-y: auto; overflow-x: auto; }
+  thead th { position: sticky; top: 0; z-index: 1; }
+
+  .wk-row td { background: var(--surface-2); font-weight: 700; color: var(--ink); border-bottom: 1px solid var(--line-2); }
+  .wk-row .wnet { font-weight: 800; }
+  .pill { font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 6px; letter-spacing: 0.02em; }
+  .pill.buy  { color: var(--buy);  background: var(--buy-wash); }
+  .pill.sell { color: var(--sell); background: var(--sell-wash); }
+  .pill.gap  { color: oklch(0.5 0.13 75); background: oklch(0.95 0.06 85); }
+  .dexcol { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .muted { color: var(--muted); }
+  .empty { padding: 30px; text-align: center; color: var(--muted); }
+
+  /* depth summary */
+  .dstats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border-radius: 12px 12px 0 0; overflow: hidden; }
+  .dstats .s { background: var(--surface); padding: 15px 18px; }
+  .dstats .k { font-size: 11px; color: var(--muted); font-weight: 600; margin-bottom: 5px; }
+  .dstats .v { font-size: 21px; font-weight: 700; letter-spacing: -0.02em; }
+  .dstats .x { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+
+  .note { font-size: 12px; color: var(--muted); line-height: 1.6; padding: 14px 4px 30px; text-align: center; }
+  .note b { color: var(--ink-2); font-weight: 600; }
+
+  @media (max-width: 860px) {
+    .lead { grid-template-columns: 1fr; gap: 20px; }
+    .compare { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 560px) {
+    main { padding: 16px; }
+    .lead .big { font-size: 34px; }
+    .hide-sm { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dot { animation: none; } .meter .fill { transition: none; }
+    * { transition-duration: 0.01ms !important; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="mark">฿</div>
+      <div><h1>KUB Flow</h1><p>KUB buy/sell pressure · CEX + DEX combined</p></div>
+    </div>
+    <div class="grow"></div>
+    <div class="status" id="status"><span class="dot"></span><span id="statusText">Loading…</span></div>
+    <button class="btn" id="syncBtn">↻ Sync</button>
+  </header>
+
+  <main>
+    <!-- LEAD VERDICT -->
+    <div class="lead" id="lead">
+      <div>
+        <div class="period" id="period">—</div>
+        <div class="verdict flat" id="verdict"><span class="badge" id="vBadge">—</span><span class="word" id="vWord">Calculating…</span></div>
+        <div class="big tnum"><span id="vNet">—</span> <span class="u">KUB</span></div>
+        <div class="thb tnum" id="vThb">—</div>
+        <div class="wow" id="vWow"></div>
+      </div>
+      <div class="balance">
+        <div class="cap"><span class="b">Buy</span><span class="s">Sell</span></div>
+        <div class="meter"><div class="fill" id="balFill" style="width:50%"><span id="balBuy"></span></div></div>
+        <div class="foot" id="balFoot">—</div>
+      </div>
+    </div>
+
+    <!-- COMPARISON -->
+    <div class="compare" id="compare"></div>
+
+    <!-- WEEKLY TREND -->
+    <section>
+      <div class="head"><h2>Weekly Trend</h2><span class="sub" id="wkSub">—</span></div>
+      <div class="panel">
+        <div class="chartbox pad" id="wkChart"><div class="empty">Collecting…</div></div>
+        <div class="legend"><span><i style="background:var(--buy-bar)"></i>Net-buy week</span><span><i style="background:var(--sell-bar)"></i>Net-sell week</span><span class="muted">Rightmost = this week</span></div>
+      </div>
+    </section>
+
+    <!-- DAILY BREAKDOWN -->
+    <section>
+      <div class="head"><h2>Daily · Who Controlled</h2><span class="sub" id="dSub">—</span></div>
+      <div class="panel scroll">
+        <table>
+          <thead><tr>
+            <th>Day</th><th>Result</th><th>Buy (KUB)</th><th>Avg Buy</th><th>Sell (KUB)</th><th>Avg Sell</th><th>Net (KUB)</th><th class="hide-sm">of which DEX</th><th class="hide-sm">Net (฿)</th><th class="hide-sm">Trades</th>
+          </tr></thead>
+          <tbody id="dBody"><tr><td colspan="10" class="empty">Collecting…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- DEPTH -->
+    <section>
+      <div class="head"><h2>Order Book Liquidity</h2><span class="sub" id="depSub">daily snapshot</span></div>
+      <div class="panel">
+        <div class="dstats" id="depStats"></div>
+        <div class="chartbox pad" id="depChart"><div class="empty">Waiting for first snapshot…</div></div>
+        <div class="legend"><span><i style="background:var(--buy-bar)"></i>Bid (buy-side ฿)</span><span><i style="background:var(--sell-bar)"></i>Ask (sell-side ฿)</span></div>
+      </div>
+    </section>
+
+    <p class="note" id="note">
+      <b>Net = Taker Buy − Taker Sell</b> · combines <b>Bitkub (CEX)</b> + <b>DEX</b> (Kublerx · Udonswap · Ponder · Junoswap), in KUB ·
+      today updates live in your browser (Bitkub + GeckoTerminal); earlier days are stored once daily · for analysis only, not investment advice
+    </p>
+  </main>
+
+<script src="flow_data.js"></script>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const nf = (mn, mx) => new Intl.NumberFormat("en-US", { minimumFractionDigits: mn, maximumFractionDigits: mx });
+const fA = nf(0, 2), fI = nf(0, 0);
+function fC(v){ if(v==null||!isFinite(v))return "—"; const s=v<0?"−":"", a=Math.abs(v); if(a>=1e9)return s+(a/1e9).toFixed(2)+"B"; if(a>=1e6)return s+(a/1e6).toFixed(2)+"M"; if(a>=1e3)return s+(a/1e3).toFixed(1)+"K"; return s+fA.format(a); }
+function sc(v){ return (v>0?"+":v<0?"−":"")+fC(Math.abs(v)); }
+function sThb(v){ return (v>0?"+":v<0?"−":"")+"฿"+fC(Math.abs(v)); }
+function fP(v){ if(v==null||!isFinite(v))return "—"; const a=Math.abs(v); const d=a>=1?2:a>=0.1?4:6; return v.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d}); }
+const dayLbl = (dk)=>{ const [y,m,d]=dk.split("-"); const mo=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; return mo[+m-1]+" "+(+d); };
+const relTime = (ms)=>{ if(!ms)return "—"; const s=Math.round((Date.now()-ms)/1000); if(s<60)return s+"s ago"; if(s<3600)return Math.round(s/60)+"m ago"; return Math.round(s/3600)+"h ago"; };
+const pct=(cur,prev)=> (prev==null||prev===0||!isFinite(prev))? null : ((cur-prev)/Math.abs(prev))*100;
+
+// ---------- data sources (all live fetching is client-side → zero Blob writes) ----------
+// History (past days) = static flow_data.js, built once/day by the GitHub Actions job (no API/Blob).
+// Today's CEX = Bitkub live (CORS *). DEX = GeckoTerminal live (CORS *; kubscan is CORS-locked).
+const KKUB = "0x67ebd850304c70d983b2d1b93ea79c7cd6c3f6b5";
+const DEX_POOLS = [
+  "0x7b7c3ef4dd11b2c994e5d93468f1e9586713bf0b", // Kublerx USDT/KKUB
+  "0x8d56d2fba2b43ce8ddc0863bd4eb3959b5799924", // Kublerx USDC.e/KKUB
+  "0xa7906787409c60e165bf2e5bd819f7a15c8ae265", // Udonswap KUSDT/KKUB
+  "0xe9813764621855f9b630a3cf621b537d65f655f0", // Ponder KUSDT/KKUB
+  "0xcf0c912a4efa1b12eab70f3ae701d6219103df0f", // Junoswap KUSDT/KKUB
+];
+const dayFmt = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit" });
+const dayKeyTs = (tsSec) => dayFmt.format(new Date(tsSec * 1000));
+function weekStart(dk){ const d=new Date(dk+"T00:00:00Z"); const off=(d.getUTCDay()+6)%7; d.setUTCDate(d.getUTCDate()-off); return d.toISOString().slice(0,10); }
+const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
+
+async function fetchHistory(){
+  if (window.FLOW) return window.FLOW;   // baked static history from the daily job
+  return { symbol:"KUB_THB", today: dayKeyTs(Math.floor(Date.now()/1000)), kubThb:null, dailyNet:[], depthDaily:[], gapDays:[], netUpdatedAt:0, depthUpdatedAt:0 };
+}
+async function fetchTodayCex(todayK){
+  try{
+    const r = await fetch("https://api.bitkub.com/api/v3/market/trades?sym=KUB_THB&lmt=1000", { cache:"no-store" });
+    if(!r.ok) return null;
+    const j = await r.json(); const rows = Array.isArray(j.result)? j.result : [];
+    let bB=0,sB=0,bQ=0,sQ=0,bC=0,sC=0,last=null;
+    for(const t of rows){ const ts=+t[0],price=+t[1],amt=+t[2],side=t[3]; if(last==null)last=price;
+      if(dayKeyTs(ts)!==todayK) continue; const val=price*amt;
+      if(side==="BUY"){bB+=amt;bQ+=val;bC++;}else{sB+=amt;sQ+=val;sC++;} }
+    return { buy:bB, sell:sB, net:bB-sB, netQ:bQ-sQ, avgBuy:bB>0?bQ/bB:null, avgSell:sB>0?sQ/sB:null, trades:bC+sC, last };
+  }catch(e){ return null; }
+}
+async function fetchDexByDay(){
+  const byDay = {};
+  for(const pool of DEX_POOLS){
+    let data=null;
+    for(let i=0;i<2 && data==null;i++){
+      try{ const r=await fetch(`https://api.geckoterminal.com/api/v2/networks/bitkub_chain/pools/${pool}/trades`,{headers:{Accept:"application/json"},cache:"no-store"});
+        if(r.ok){ const j=await r.json(); data=Array.isArray(j.data)?j.data:[]; }
+        else if(r.status===429){ await sleep(600); } else { data=[]; } }
+      catch(e){ data=[]; }
+    }
+    for(const t of (data||[])){ const a=t.attributes||{}; const ts=Math.floor(Date.parse(a.block_timestamp)/1000); if(!isFinite(ts))continue;
+      const to=(a.to_token_address||"").toLowerCase(), from=(a.from_token_address||"").toLowerCase();
+      const buy=to===KKUB, sell=from===KKUB; if(!buy&&!sell)continue;
+      const kub=+(buy? a.to_token_amount : a.from_token_amount); if(!isFinite(kub)||kub<=0)continue;
+      const dk=dayKeyTs(ts); const o=byDay[dk]||(byDay[dk]={buy:0,sell:0,trades:0});
+      if(buy)o.buy+=kub; else o.sell+=kub; o.trades++; }
+    await sleep(250); // ease GeckoTerminal's burst limit
+  }
+  return byDay;
+}
+
+// Merge: Blob CEX history (past) + live Bitkub (today) + live DEX (recent), then roll up to weeks.
+function combine(hist, todayCex, dexByDay){
+  const todayK = hist.today;
+  const kubThb = hist.kubThb || (todayCex && todayCex.last) || null;
+  const gap = new Set(hist.gapDays||[]);
+  const map = new Map();
+  for(const d of (hist.dailyNet||[]))
+    map.set(d.day, { day:d.day, week:d.week||weekStart(d.day), buy:d.buy, sell:d.sell, net:d.net, netQ:d.netQ, avgBuy:d.avgBuy??null, avgSell:d.avgSell??null, dexNet:0, trades:d.trades, gap:d.gap });
+  if(todayCex) // today's CEX comes live from Bitkub (replaces any partial stored today)
+    map.set(todayK, { day:todayK, week:weekStart(todayK), buy:todayCex.buy, sell:todayCex.sell, net:todayCex.net, netQ:todayCex.netQ, avgBuy:todayCex.avgBuy??null, avgSell:todayCex.avgSell??null, dexNet:0, trades:todayCex.trades, gap:gap.has(todayK) });
+  for(const dk of Object.keys(dexByDay)){ const dx=dexByDay[dk]; const dexNet=dx.buy-dx.sell; const dexNetQ=kubThb? dexNet*kubThb:0;
+    const row = map.get(dk) || { day:dk, week:weekStart(dk), buy:0, sell:0, net:0, netQ:0, avgBuy:null, avgSell:null, dexNet:0, trades:0, gap:gap.has(dk) };
+    row.buy+=dx.buy; row.sell+=dx.sell; row.net+=dexNet; row.netQ+=dexNetQ; row.dexNet+=dexNet; row.trades+=dx.trades; map.set(dk,row); }
+  const dailyNet = [...map.values()].sort((a,b)=>a.day<b.day?-1:1);
+  const wk={};
+  for(const d of dailyNet){ const o=wk[d.week]||(wk[d.week]={week:d.week,buy:0,sell:0,net:0,netQ:0,dexNet:0,trades:0,days:[]});
+    o.buy+=d.buy;o.sell+=d.sell;o.net+=d.net;o.netQ+=d.netQ;o.dexNet+=d.dexNet;o.trades+=d.trades;o.days.push(d.day); }
+  const weekly = Object.values(wk).sort((a,b)=>a.week<b.week?-1:1).map(o=>({week:o.week,buy:o.buy,sell:o.sell,net:o.net,netQ:o.netQ,dexNet:o.dexNet,trades:o.trades,days:o.days.length,gap:o.days.some(x=>gap.has(x))}));
+  return { symbol:hist.symbol, today:todayK, kubThb, dailyNet, weekly, depthDaily:hist.depthDaily||[], gapDays:hist.gapDays||[], netUpdatedAt:hist.netUpdatedAt, depthUpdatedAt:hist.depthUpdatedAt };
+}
+
+let busy=false;
+async function tick(){ if(busy)return; busy=true; $("syncBtn").textContent="↻ …";
+  try{
+    const hist = await fetchHistory();
+    const [todayCex, dexByDay] = await Promise.all([ fetchTodayCex(hist.today), fetchDexByDay() ]);
+    render(combine(hist, todayCex, dexByDay));
+    $("status").classList.remove("err"); $("statusText").textContent = todayCex? "live" : "history";
+  }catch(e){ $("status").classList.add("err"); $("statusText").textContent="offline"; }
+  finally{ busy=false; $("syncBtn").textContent="↻ Sync"; }
+}
+
+function render(d){
+  const w = d.weekly||[], dn = d.dailyNet||[];
+  const cur = w.length? w[w.length-1] : null;
+  const prev = w.length>1? w[w.length-2] : null;
+  const gapN = (d.gapDays||[]).length;
+
+  // ---- LEAD VERDICT ----
+  if(cur){
+    const total = cur.buy+cur.sell, buyPct = total? cur.buy/total*100 : 50;
+    const strongSell = cur.net < 0, tiny = total>0 && Math.abs(cur.net)/total < 0.03;
+    const mode = tiny? "flat" : strongSell? "sell" : "buy";
+    const word = tiny? "Balanced" : strongSell? "Sellers in control" : "Buyers in control";
+    const badge = tiny? "BALANCED" : strongSell? "Distribution" : "Accumulation";
+    const v = $("verdict"); v.className = "verdict "+mode;
+    $("vBadge").textContent = badge; $("vWord").textContent = word;
+    $("period").innerHTML = `This week · from <b>${dayLbl(cur.week)}</b> (${cur.days} ${cur.days===1?'day':'days'})`;
+    $("vNet").textContent = sc(cur.net);
+    $("vNet").className = cur.net>=0? "pos":"neg";
+    $("vThb").innerHTML = `≈ <span class="${cur.netQ>=0?'pos':'neg'}">${cur.netQ>=0?'+':'−'}฿${fC(Math.abs(cur.netQ))}</span> at current price`;
+    // wow sentence
+    let wow;
+    if(!prev){ wow = `<span class="muted">No prior week to compare yet</span>`; }
+    else {
+      const abs = cur.net - prev.net;          // change in net; <0 = more selling
+      const absQ = (cur.netQ||0) - (prev.netQ||0);
+      const moreSell = abs < 0, up = !moreSell;
+      const p = prev.net !== 0 ? abs / Math.abs(prev.net) * 100 : null;
+      const sane = p != null && Math.abs(p) <= 300;   // % explodes off a tiny/partial base — show it only when meaningful
+      const phrase = moreSell ? `Selling intensified by ${fC(Math.abs(abs))} KUB (${sThb(absQ)})` : `Buying strengthened by ${fC(Math.abs(abs))} KUB (${sThb(absQ)})`;
+      wow = `<span class="arrow ${up?'up':'down'}">${up?'▲':'▼'}</span> ${phrase} vs last week` +
+            (sane ? ` <b class="${up?'pos':'neg'}">${p>=0?'+':'−'}${Math.abs(p).toFixed(0)}%</b>` : ` <span class="muted">· prior ${sc(prev.net)}</span>`);
+    }
+    $("vWow").innerHTML = wow;
+    // balance meter
+    $("balFill").style.width = buyPct.toFixed(1)+"%";
+    $("balBuy").textContent = buyPct>=14? buyPct.toFixed(0)+"% buy" : "";
+    $("balFoot").innerHTML = `Buy ${fC(cur.buy)} · <span class="s">Sell ${fC(cur.sell)}</span> KUB — ${strongSell?'sell side':'buy side'} in control ${(strongSell?100-buyPct:buyPct).toFixed(0)}%`;
+  }
+
+  // ---- COMPARISON STRIP ----
+  let tIdx = dn.findIndex(x=>x.day===d.today); if(tIdx<0) tIdx=dn.length-1;
+  const today = dn[tIdx]||null, yest = tIdx>0? dn[tIdx-1] : null;
+  const cmp = [
+    { k:"This week", obj: cur, base: prev },
+    { k:"Last week", obj: prev, base: null },
+    { k:"Today", obj: today, base: yest },
+    { k:"Yesterday", obj: yest, base: null },
+  ];
+  $("compare").innerHTML = cmp.map(c=>{
+    if(!c.obj) return `<div class="cell"><div class="k">${c.k}</div><div class="v muted">—</div></div>`;
+    const net = c.obj.net, netQ = c.obj.netQ||0;
+    let delta = `<div class="d flat">—</div>`;
+    if(c.base){
+      const abs = net - c.base.net, absQ = netQ - (c.base.netQ||0), up = abs >= 0;
+      const p = c.base.net !== 0 ? abs/Math.abs(c.base.net)*100 : null;
+      const sane = p != null && Math.abs(p) <= 300;
+      delta = `<div class="d ${up?'up':'down'}">${up?'▲':'▼'} Δ ${sc(abs)} KUB <span class="muted" style="font-weight:500">(${sThb(absQ)})${sane?` · ${p>=0?'+':'−'}${Math.abs(p).toFixed(0)}%`:''}</span></div>`;
+    }
+    return `<div class="cell"><div class="k">${c.k}</div>`+
+      `<div class="v tnum ${net>=0?'pos':'neg'}">${sc(net)}<span class="muted" style="font-size:12px;font-weight:600"> KUB</span></div>`+
+      `<div class="q tnum">(${sThb(netQ)})</div>${delta}</div>`;
+  }).join("");
+
+  // ---- WEEKLY CHART ----
+  $("wkSub").textContent = w.length? `${w.length} weeks · CEX+DEX`+(gapN?` · ${gapN} days ≈ may be incomplete`:"") : "";
+  $("wkChart").innerHTML = w.length? svgDiverge(w.slice(-14).map((x,i,a)=>({label:dayLbl(x.week), net:x.net, q:x.netQ, cur:i===a.length-1}))) : `<div class="empty">Collecting…</div>`;
+
+  // ---- DAILY (grouped by week) ----
+  $("dSub").textContent = dn.length? `${dn.length} days · synced ${relTime(d.netUpdatedAt)}` : "";
+  if(!dn.length){ $("dBody").innerHTML = `<tr><td colspan="10" class="empty">No data yet</td></tr>`; }
+  else {
+    const byWeek={}; dn.forEach(x=>{ (byWeek[x.week]=byWeek[x.week]||[]).push(x); });
+    const weeks=Object.keys(byWeek).sort().reverse();
+    let html="";
+    for(const wk of weeks){
+      const wkObj = w.find(x=>x.week===wk);
+      const g = (f)=> wkObj ? wkObj[f] : byWeek[wk].reduce((s,x)=>s+x[f],0);
+      const wkBuy=g("buy"), wkSell=g("sell"), wkNet=g("net");
+      html += `<tr class="wk-row"><td>Week of ${dayLbl(wk)}</td><td></td>`+
+        `<td class="tnum pos">${fC(wkBuy)}</td><td></td>`+
+        `<td class="tnum neg">${fC(wkSell)}</td><td></td>`+
+        `<td class="wnet tnum ${wkNet>=0?'pos':'neg'}">${sc(wkNet)}</td>`+
+        `<td class="hide-sm"></td><td class="hide-sm"></td><td class="hide-sm"></td></tr>`;
+      for(const x of byWeek[wk].sort((a,b)=>a.day<b.day?1:-1)){
+        const buy = x.net>=0;
+        html += `<tr><td>${dayLbl(x.day)}${x.gap?' <span class="pill gap">≈</span>':''}</td>`+
+          `<td style="text-align:right"><span class="pill ${buy?'buy':'sell'}">${buy?'Buy':'Sell'}</span></td>`+
+          `<td class="tnum pos">${fC(x.buy)}</td>`+
+          `<td class="tnum pos">${x.avgBuy!=null?'฿'+fP(x.avgBuy):'<span class="muted">—</span>'}</td>`+
+          `<td class="tnum neg">${fC(x.sell)}</td>`+
+          `<td class="tnum neg">${x.avgSell!=null?'฿'+fP(x.avgSell):'<span class="muted">—</span>'}</td>`+
+          `<td class="tnum ${buy?'pos':'neg'}">${sc(x.net)}</td>`+
+          `<td class="hide-sm dexcol">${sc(x.dexNet)}</td>`+
+          `<td class="hide-sm tnum ${x.netQ>=0?'pos':'neg'}">${x.netQ>=0?'+':'−'}฿${fC(Math.abs(x.netQ))}</td>`+
+          `<td class="hide-sm muted tnum">${fI.format(x.trades)}</td></tr>`;
+      }
+    }
+    $("dBody").innerHTML = html;
+  }
+
+  // ---- DEPTH ----
+  const dp = d.depthDaily||[];
+  if(dp.length){
+    const last = dp[dp.length-1];
+    const imb = last.bidQuote+last.askQuote>0 ? last.bidQuote/(last.bidQuote+last.askQuote)*100 : 50;
+    $("depSub").textContent = `snapshot ${relTime(d.depthUpdatedAt)}`;
+    $("depStats").innerHTML =
+      `<div class="s"><div class="k">Mid price</div><div class="v tnum">฿${fP(last.mid)}</div><div class="x">${dayLbl(last.day)}</div></div>`+
+      `<div class="s"><div class="k">Bid liquidity</div><div class="v tnum pos">฿${fC(last.bidQuote)}</div><div class="x">${fC(last.bid2)} KUB within ±2%</div></div>`+
+      `<div class="s"><div class="k">Ask liquidity</div><div class="v tnum neg">฿${fC(last.askQuote)}</div><div class="x">${fC(last.ask2)} KUB within ±2%</div></div>`;
+    $("depChart").innerHTML = svgDepth(dp.slice(-30));
+  } else {
+    $("depStats").innerHTML = ""; $("depChart").innerHTML = `<div class="empty">Waiting for first snapshot…</div>`;
+  }
+}
+
+/* ---------- charts ---------- */
+function svgDiverge(data){
+  if(!data.length) return `<div class="empty">—</div>`;
+  const n=data.length, slot=Math.max(44, Math.min(96, 720/n)), W=Math.max(n*slot,320), H=210, padT=16, padB=30, mid=padT+(H-padT-padB)/2;
+  const maxAbs=Math.max(1e-9,...data.map(d=>Math.abs(d.net))), sc2=(H-padT-padB)/2, bw=Math.min(30, slot*0.5);
+  let bars="",labels="";
+  data.forEach((d,i)=>{ const x=(i+0.5)*(W/n); const h=(Math.abs(d.net)/maxAbs)*sc2; const up=d.net>=0; const y=up?mid-h:mid;
+    const fill=up?"var(--buy-bar)":"var(--sell-bar)"; const op=d.cur?1:0.5;
+    bars+=`<rect x="${(x-bw/2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(2,h).toFixed(1)}" rx="3" fill="${fill}" opacity="${op}"><title>${d.label}: ${sc(d.net)} KUB (${sThb(d.q||0)})</title></rect>`;
+    if(d.cur) bars+=`<rect x="${(x-bw/2-3).toFixed(1)}" y="${padT-6}" width="${(bw+6).toFixed(1)}" height="${H-padB-padT+8}" rx="6" fill="none" stroke="var(--line-2)" stroke-dasharray="3 3"/>`;
+    labels+=`<text x="${x.toFixed(1)}" y="${H-10}" fill="${d.cur?'var(--ink-2)':'var(--muted)'}" font-size="10.5" font-weight="${d.cur?700:500}" text-anchor="middle">${d.label}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg"><line x1="0" y1="${mid}" x2="${W}" y2="${mid}" stroke="var(--line-2)"/>${bars}${labels}</svg>`;
+}
+function svgDepth(data){
+  if(!data.length) return `<div class="empty">—</div>`;
+  const n=data.length, slot=Math.max(40, Math.min(72, 760/n)), W=Math.max(n*slot,320), H=190, padT=14, padB=28, base=H-padB;
+  const maxV=Math.max(1e-9,...data.flatMap(d=>[d.bidQuote,d.askQuote])), sc2=H-padT-padB, bw=Math.min(11, slot*0.3);
+  let bars="",labels="";
+  data.forEach((d,i)=>{ const cx=(i+0.5)*slot; const hb=(d.bidQuote/maxV)*sc2, ha=(d.askQuote/maxV)*sc2;
+    bars+=`<rect x="${(cx-bw-1.5).toFixed(1)}" y="${(base-hb).toFixed(1)}" width="${bw}" height="${Math.max(1.5,hb).toFixed(1)}" rx="2.5" fill="var(--buy-bar)"><title>${d.day} Bid ฿${fC(d.bidQuote)}</title></rect>`;
+    bars+=`<rect x="${(cx+1.5).toFixed(1)}" y="${(base-ha).toFixed(1)}" width="${bw}" height="${Math.max(1.5,ha).toFixed(1)}" rx="2.5" fill="var(--sell-bar)"><title>${d.day} Ask ฿${fC(d.askQuote)}</title></rect>`;
+    if(i%Math.ceil(n/10)===0) labels+=`<text x="${cx.toFixed(1)}" y="${H-9}" fill="var(--muted)" font-size="10" text-anchor="middle">${dayLbl(d.day)}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg"><line x1="0" y1="${base}" x2="${W}" y2="${base}" stroke="var(--line-2)"/>${bars}${labels}</svg>`;
+}
+
+$("syncBtn").addEventListener("click", tick);
+document.addEventListener("visibilitychange", ()=>{ if(!document.hidden && !window.__demo) tick(); });
+
+// ?demo=1 renders representative offline data (for design preview); real load runs the live sync loop.
+if (new URLSearchParams(location.search).has("demo")) {
+  window.__demo = true;
+  $("statusText").textContent = "demo data";
+  const now = Date.now();
+  render({
+    symbol:"KUB_THB", today:"2026-07-14", kubThb:23.95, netUpdatedAt:now-95000, depthUpdatedAt:now-3600000, gapDays:[],
+    dailyNet:[
+      {day:"2026-07-08",week:"2026-07-06",buy:41200,sell:38900,net:2300,netQ:55100,avgBuy:24.62,avgSell:24.51,dexNet:200,trades:812},
+      {day:"2026-07-09",week:"2026-07-06",buy:33800,sell:39100,net:-5300,netQ:-127000,avgBuy:24.55,avgSell:24.44,dexNet:-200,trades:701},
+      {day:"2026-07-10",week:"2026-07-06",buy:52000,sell:44300,net:7700,netQ:184800,avgBuy:24.48,avgSell:24.36,dexNet:200,trades:934},
+      {day:"2026-07-11",week:"2026-07-06",buy:30100,sell:38600,net:-8500,netQ:-203900,avgBuy:24.40,avgSell:24.28,dexNet:-200,trades:655},
+      {day:"2026-07-12",week:"2026-07-06",buy:28400,sell:32632,net:-4232,netQ:-100805,avgBuy:24.33,avgSell:24.22,dexNet:0,trades:589},
+      {day:"2026-07-13",week:"2026-07-13",buy:84960,sell:126274,net:-41314,netQ:-988963,avgBuy:24.30,avgSell:24.10,dexNet:-1563.7,trades:585},
+      {day:"2026-07-14",week:"2026-07-13",buy:29820,sell:33345,net:-3525,netQ:-84424,avgBuy:24.02,avgSell:23.88,dexNet:292.5,trades:462}],
+    weekly:[
+      {week:"2026-07-06",buy:185500,sell:193432,net:-7932,netQ:-190000,dexNet:-200,trades:3691,days:5,gap:false},
+      {week:"2026-07-13",buy:114780,sell:159619,net:-44839,netQ:-1073387,dexNet:-1271,trades:1047,days:2,gap:false}],
+    depthDaily:[
+      {day:"2026-07-10",mid:24.55,bidQuote:6300000,askQuote:49000000,bid2:44000,ask2:112000,bid10:190000,ask10:860000},
+      {day:"2026-07-11",mid:24.40,bidQuote:6100000,askQuote:51000000,bid2:42000,ask2:118000,bid10:185000,ask10:910000},
+      {day:"2026-07-12",mid:24.30,bidQuote:5950000,askQuote:53000000,bid2:40000,ask2:124000,bid10:182000,ask10:940000},
+      {day:"2026-07-13",mid:24.28,bidQuote:5900000,askQuote:52000000,bid2:41000,ask2:120000,bid10:180000,ask10:900000},
+      {day:"2026-07-14",mid:23.95,bidQuote:6087002,askQuote:56314816,bid2:39000,ask2:131000,bid10:175000,ask10:980000}],
+  });
+} else {
+  tick();
+  setInterval(tick, 90000);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+name: KUB flow daily worker
+
+on:
+  schedule:
+    - cron: "10 3 * * *"   # 03:10 UTC = 10:10 Asia/Bangkok, once a day
+  workflow_dispatch: {}     # manual "Run workflow" button
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: kub-flow
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch flow (CEX net + order-book depth)
+        run: python3 fetch_flow.py     # stdlib only, no pip install
+
+      - name: Commit fresh data
+        run: |
+          git config user.name  "kub-flow-bot"
+          git config user.email "actions@github.com"
+          git add flow_data.js flow_state.json
+          if git diff --cached --quiet; then
+            echo "no change today"
+          else
+            git commit -m "flow: $(date -u +%F)"
+            git push
+          fi
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+  deploy:
+    needs: run
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
