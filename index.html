@@ -73,6 +73,11 @@
   }
   .btn:hover { background: var(--surface-2); color: var(--ink); border-color: var(--muted); }
   .btn:active { transform: translateY(1px); }
+  .dexTog { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600;
+    color: var(--ink-2); cursor: pointer; user-select: none; white-space: nowrap;
+    padding: 6px 11px; border: 1px solid var(--line-2); border-radius: 9px; background: var(--surface); }
+  .dexTog:hover { border-color: var(--muted); color: var(--ink); }
+  .dexTog input { width: 15px; height: 15px; margin: 0; accent-color: var(--buy-bar); cursor: pointer; }
 
   main { max-width: 1180px; margin: 0 auto; padding: 24px; }
 
@@ -189,6 +194,7 @@
     </div>
     <div class="grow"></div>
     <div class="status" id="status"><span class="dot"></span><span id="statusText">Loading…</span></div>
+    <label class="dexTog" title="Include on-chain DEX swaps in the net"><input type="checkbox" id="dexToggle" checked /> <span>+ DEX</span></label>
     <button class="btn" id="syncBtn">↻ Sync</button>
   </header>
 
@@ -245,8 +251,8 @@
     </section>
 
     <p class="note" id="note">
-      <b>Net = Taker Buy − Taker Sell</b> · combines <b>Bitkub (CEX)</b> + <b>DEX</b> (Kublerx · Udonswap · Ponder · Junoswap), in KUB ·
-      today updates live in your browser (Bitkub + GeckoTerminal); earlier days are stored once daily · for analysis only, not investment advice
+      <b>Net = Taker Buy − Taker Sell</b> · <b>Bitkub (CEX)</b> + on-chain <b>DEX</b> (KUBLERX · Udonswap · Ponder · Junoswap swap events), in KUB · use <b>+ DEX</b> at the top to include/exclude DEX ·
+      today's CEX is live in your browser; history + DEX are computed daily by the worker · for analysis only, not investment advice
     </p>
   </main>
 
@@ -264,21 +270,15 @@ const dayLbl = (dk)=>{ const [y,m,d]=dk.split("-"); const mo=["Jan","Feb","Mar",
 const relTime = (ms)=>{ if(!ms)return "—"; const s=Math.round((Date.now()-ms)/1000); if(s<60)return s+"s ago"; if(s<3600)return Math.round(s/60)+"m ago"; return Math.round(s/3600)+"h ago"; };
 const pct=(cur,prev)=> (prev==null||prev===0||!isFinite(prev))? null : ((cur-prev)/Math.abs(prev))*100;
 
-// ---------- data sources (all live fetching is client-side → zero Blob writes) ----------
-// History (past days) = static flow_data.js, built once/day by the GitHub Actions job (no API/Blob).
-// Today's CEX = Bitkub live (CORS *). DEX = GeckoTerminal live (CORS *; kubscan is CORS-locked).
-const KKUB = "0x67ebd850304c70d983b2d1b93ea79c7cd6c3f6b5";
-const DEX_POOLS = [
-  "0x7b7c3ef4dd11b2c994e5d93468f1e9586713bf0b", // Kublerx USDT/KKUB
-  "0x8d56d2fba2b43ce8ddc0863bd4eb3959b5799924", // Kublerx USDC.e/KKUB
-  "0xa7906787409c60e165bf2e5bd819f7a15c8ae265", // Udonswap KUSDT/KKUB
-  "0xe9813764621855f9b630a3cf621b537d65f655f0", // Ponder KUSDT/KKUB
-  "0xcf0c912a4efa1b12eab70f3ae701d6219103df0f", // Junoswap KUSDT/KKUB
-];
+// ---------- data sources ----------
+// History + on-chain DEX (past days) = static flow_data.js, built once/day by the GitHub Actions
+// worker: CEX net (Bitkub) + DEX net (KUBLERX/Udonswap/Ponder/Junoswap swap events, read from RPC).
+// Today's CEX = Bitkub live (CORS *). The header "+ DEX" toggle counts DEX in the net or not.
 const dayFmt = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit" });
 const dayKeyTs = (tsSec) => dayFmt.format(new Date(tsSec * 1000));
 function weekStart(dk){ const d=new Date(dk+"T00:00:00Z"); const off=(d.getUTCDay()+6)%7; d.setUTCDate(d.getUTCDate()-off); return d.toISOString().slice(0,10); }
-const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
+let INCLUDE_DEX = localStorage.getItem("kubflow_dex") !== "0";   // default ON
+let LAST = null;                                                 // {hist, todayCex} — re-render on toggle without refetch
 
 async function fetchHistory(){
   if (window.FLOW) return window.FLOW;   // baked static history from the daily job
@@ -296,41 +296,30 @@ async function fetchTodayCex(todayK){
     return { buy:bB, sell:sB, net:bB-sB, netQ:bQ-sQ, avgBuy:bB>0?bQ/bB:null, avgSell:sB>0?sQ/sB:null, trades:bC+sC, last };
   }catch(e){ return null; }
 }
-async function fetchDexByDay(){
-  const byDay = {};
-  for(const pool of DEX_POOLS){
-    let data=null;
-    for(let i=0;i<2 && data==null;i++){
-      try{ const r=await fetch(`https://api.geckoterminal.com/api/v2/networks/bitkub_chain/pools/${pool}/trades`,{headers:{Accept:"application/json"},cache:"no-store"});
-        if(r.ok){ const j=await r.json(); data=Array.isArray(j.data)?j.data:[]; }
-        else if(r.status===429){ await sleep(600); } else { data=[]; } }
-      catch(e){ data=[]; }
-    }
-    for(const t of (data||[])){ const a=t.attributes||{}; const ts=Math.floor(Date.parse(a.block_timestamp)/1000); if(!isFinite(ts))continue;
-      const to=(a.to_token_address||"").toLowerCase(), from=(a.from_token_address||"").toLowerCase();
-      const buy=to===KKUB, sell=from===KKUB; if(!buy&&!sell)continue;
-      const kub=+(buy? a.to_token_amount : a.from_token_amount); if(!isFinite(kub)||kub<=0)continue;
-      const dk=dayKeyTs(ts); const o=byDay[dk]||(byDay[dk]={buy:0,sell:0,trades:0});
-      if(buy)o.buy+=kub; else o.sell+=kub; o.trades++; }
-    await sleep(250); // ease GeckoTerminal's burst limit
-  }
-  return byDay;
-}
-
-// Merge: Blob CEX history (past) + live Bitkub (today) + live DEX (recent), then roll up to weeks.
-function combine(hist, todayCex, dexByDay){
+// Merge worker history (CEX + on-chain DEX per day) + live Bitkub today, apply the "+ DEX" toggle, roll up weeks.
+function combine(hist, todayCex){
   const todayK = hist.today;
   const kubThb = hist.kubThb || (todayCex && todayCex.last) || null;
   const gap = new Set(hist.gapDays||[]);
   const map = new Map();
-  for(const d of (hist.dailyNet||[]))
-    map.set(d.day, { day:d.day, week:d.week||weekStart(d.day), buy:d.buy, sell:d.sell, net:d.net, netQ:d.netQ, avgBuy:d.avgBuy??null, avgSell:d.avgSell??null, dexNet:0, trades:d.trades, gap:d.gap });
-  if(todayCex) // today's CEX comes live from Bitkub (replaces any partial stored today)
-    map.set(todayK, { day:todayK, week:weekStart(todayK), buy:todayCex.buy, sell:todayCex.sell, net:todayCex.net, netQ:todayCex.netQ, avgBuy:todayCex.avgBuy??null, avgSell:todayCex.avgSell??null, dexNet:0, trades:todayCex.trades, gap:gap.has(todayK) });
-  for(const dk of Object.keys(dexByDay)){ const dx=dexByDay[dk]; const dexNet=dx.buy-dx.sell; const dexNetQ=kubThb? dexNet*kubThb:0;
-    const row = map.get(dk) || { day:dk, week:weekStart(dk), buy:0, sell:0, net:0, netQ:0, avgBuy:null, avgSell:null, dexNet:0, trades:0, gap:gap.has(dk) };
-    row.buy+=dx.buy; row.sell+=dx.sell; row.net+=dexNet; row.netQ+=dexNetQ; row.dexNet+=dexNet; row.trades+=dx.trades; map.set(dk,row); }
-  const dailyNet = [...map.values()].sort((a,b)=>a.day<b.day?-1:1);
+  for(const d of (hist.dailyNet||[])) map.set(d.day, { ...d, week: d.week || weekStart(d.day) });
+  if(todayCex){                                     // today's CEX live from Bitkub; keep today's DEX from the worker
+    const ex = map.get(todayK) || { day:todayK, dexBuy:0, dexSell:0, dexNet:0, dexNetQ:0, dexSwaps:0, gap:gap.has(todayK) };
+    map.set(todayK, { ...ex, day:todayK, week:weekStart(todayK), gap:gap.has(todayK),
+      cexBuy:todayCex.buy, cexSell:todayCex.sell, cexNet:todayCex.net, cexNetQ:todayCex.netQ,
+      avgBuy:todayCex.avgBuy, avgSell:todayCex.avgSell, cexTrades:todayCex.trades });
+  }
+  const useDex = INCLUDE_DEX;
+  const dailyNet = [...map.values()].sort((a,b)=>a.day<b.day?-1:1).map(r=>({
+    day:r.day, week:r.week, gap:r.gap,
+    buy:(r.cexBuy||0)+(useDex?(r.dexBuy||0):0),
+    sell:(r.cexSell||0)+(useDex?(r.dexSell||0):0),
+    net:(r.cexNet||0)+(useDex?(r.dexNet||0):0),
+    netQ:(r.cexNetQ||0)+(useDex?(r.dexNetQ||0):0),
+    dexNet:r.dexNet||0,
+    avgBuy:r.avgBuy??null, avgSell:r.avgSell??null,
+    trades:(r.cexTrades||0)+(useDex?(r.dexSwaps||0):0),
+  }));
   const wk={};
   for(const d of dailyNet){ const o=wk[d.week]||(wk[d.week]={week:d.week,buy:0,sell:0,net:0,netQ:0,dexNet:0,trades:0,days:[]});
     o.buy+=d.buy;o.sell+=d.sell;o.net+=d.net;o.netQ+=d.netQ;o.dexNet+=d.dexNet;o.trades+=d.trades;o.days.push(d.day); }
@@ -342,12 +331,14 @@ let busy=false;
 async function tick(){ if(busy)return; busy=true; $("syncBtn").textContent="↻ …";
   try{
     const hist = await fetchHistory();
-    const [todayCex, dexByDay] = await Promise.all([ fetchTodayCex(hist.today), fetchDexByDay() ]);
-    render(combine(hist, todayCex, dexByDay));
+    const todayCex = await fetchTodayCex(hist.today);
+    LAST = { hist, todayCex };
+    render(combine(hist, todayCex));
     $("status").classList.remove("err"); $("statusText").textContent = todayCex? "live" : "history";
   }catch(e){ $("status").classList.add("err"); $("statusText").textContent="offline"; }
   finally{ busy=false; $("syncBtn").textContent="↻ Sync"; }
 }
+function setDex(on){ INCLUDE_DEX=on; localStorage.setItem("kubflow_dex", on?"1":"0"); if(LAST) render(combine(LAST.hist, LAST.todayCex)); }
 
 function render(d){
   const w = d.weekly||[], dn = d.dailyNet||[];
@@ -493,6 +484,8 @@ function svgDepth(data){
 }
 
 $("syncBtn").addEventListener("click", tick);
+$("dexToggle").checked = INCLUDE_DEX;
+$("dexToggle").addEventListener("change", (e)=> setDex(e.target.checked));
 document.addEventListener("visibilitychange", ()=>{ if(!document.hidden && !window.__demo) tick(); });
 
 // ?demo=1 renders representative offline data (for design preview); real load runs the live sync loop.
