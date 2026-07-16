@@ -78,12 +78,13 @@
     padding: 6px 11px; border: 1px solid var(--line-2); border-radius: 9px; background: var(--surface); }
   .dexTog:hover { border-color: var(--muted); color: var(--ink); }
   .dexTog input { width: 15px; height: 15px; margin: 0; accent-color: var(--buy-bar); cursor: pointer; }
-  .pnav { display: flex; gap: 3px; align-items: center; flex-wrap: wrap; }
-  .pnav a, .pnav .soon { font-size: 13px; font-weight: 600; text-decoration: none; padding: 6px 11px;
-    border-radius: 9px; color: var(--ink-2); border: 1px solid transparent; white-space: nowrap; }
-  .pnav a:hover { background: var(--surface-2); color: var(--ink); }
-  .pnav a.on { background: var(--buy-wash); color: var(--buy); }
-  .pnav .soon { color: var(--muted); cursor: default; display: inline-flex; align-items: center; gap: 5px; }
+  .pnav { display: inline-flex; gap: 2px; align-items: center; flex-wrap: wrap;
+    padding: 3px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 11px; }
+  .pnav a, .pnav .soon { font-size: 13px; font-weight: 600; text-decoration: none; padding: 6px 13px;
+    border-radius: 8px; color: var(--ink-2); white-space: nowrap; transition: background .15s, color .15s; }
+  .pnav a:hover:not(.on) { color: var(--ink); }
+  .pnav a.on { background: var(--surface); color: var(--buy); box-shadow: var(--shadow); }
+  .pnav .soon { color: var(--muted); cursor: default; display: inline-flex; align-items: center; gap: 5px; opacity: .8; }
   .pnav .soon i { font-style: normal; font-size: 9px; font-weight: 700; text-transform: uppercase;
     letter-spacing: .03em; background: var(--line); color: var(--muted); padding: 1px 5px; border-radius: 5px; }
 
@@ -207,7 +208,7 @@
     </div>
     <nav class="pnav">
       <a href="index.html" class="on">Flow</a>
-      <a href="kub-holders-daily.html">Holders</a>
+      <a href="kub-holders-daily.html">EOA Holders</a>
       <a href="kub-activity.html">Active Wallets</a>
       <span class="soon">TVL<i>soon</i></span>
     </nav>

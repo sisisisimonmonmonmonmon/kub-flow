@@ -56,12 +56,13 @@
   .fill-note { margin-top: 10px; font-size: 12px; color: oklch(0.5 0.13 75); background: oklch(0.96 0.05 85); border-radius: 8px; padding: 7px 11px; display: inline-block; }
   footer { max-width: 960px; margin: 0 auto; padding: 4px 24px 30px; font-size: 11.5px; color: var(--muted); line-height: 1.6; }
   footer b { color: var(--ink-2); }
-  .pnav { display: flex; gap: 3px; align-items: center; flex-wrap: wrap; margin: 0 0 14px; }
-  .pnav a, .pnav .soon { font-size: 13px; font-weight: 600; text-decoration: none; padding: 6px 11px;
-    border-radius: 9px; color: var(--ink-2); border: 1px solid transparent; white-space: nowrap; }
-  .pnav a:hover { background: var(--surface-2); color: var(--ink); }
-  .pnav a.on { background: var(--green-wash); color: var(--green); }
-  .pnav .soon { color: var(--muted); cursor: default; display: inline-flex; align-items: center; gap: 5px; }
+  .pnav { display: inline-flex; gap: 2px; align-items: center; flex-wrap: wrap; margin: 0 0 16px;
+    padding: 3px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 11px; }
+  .pnav a, .pnav .soon { font-size: 13px; font-weight: 600; text-decoration: none; padding: 6px 13px;
+    border-radius: 8px; color: var(--ink-2); white-space: nowrap; transition: background .15s, color .15s; }
+  .pnav a:hover:not(.on) { color: var(--ink); }
+  .pnav a.on { background: var(--surface); color: var(--green); box-shadow: var(--shadow); }
+  .pnav .soon { color: var(--muted); cursor: default; display: inline-flex; align-items: center; gap: 5px; opacity: .8; }
   .pnav .soon i { font-style: normal; font-size: 9px; font-weight: 700; text-transform: uppercase;
     letter-spacing: .03em; background: var(--line); color: var(--muted); padding: 1px 5px; border-radius: 5px; }
 </style>
@@ -70,7 +71,7 @@
   <header>
     <nav class="pnav">
       <a href="index.html">Flow</a>
-      <a href="kub-holders-daily.html">Holders</a>
+      <a href="kub-holders-daily.html">EOA Holders</a>
       <a href="kub-activity.html" class="on">Active Wallets</a>
       <span class="soon">TVL<i>soon</i></span>
     </nav>

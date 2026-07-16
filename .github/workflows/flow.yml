@@ -40,17 +40,26 @@ jobs:
           restore-keys: |
             kub-activity-
 
+      # All three fetches are continue-on-error + time-boxed: a slow/flaky kubscan
+      # or RPC must NEVER block the site (HTML/nav) from deploying. Whatever data
+      # was refreshed gets committed; the rest keeps yesterday's values.
       - name: Holders — daily EOA summary (native + KKUB, excl. CEX/Fund/Reserve)
+        continue-on-error: true
+        timeout-minutes: 8
         run: python3 daily_summary.py
 
       - name: Active wallets — 7-day on-chain activity (unique EOA + top contracts)
+        continue-on-error: true
+        timeout-minutes: 10
         env:
-          ACT_MAX_PAGES: "1500"       # first run seeds ~2 days fast; the 7-day window fills over the following days
+          ACT_MAX_PAGES: "700"        # ~1 day on first run; the 7-day window fills over the following days
         run: |
           python3 fetch_activity.py
           python3 build_activity.py
 
       - name: Flow — daily CEX net + order-book depth + on-chain DEX net
+        continue-on-error: true
+        timeout-minutes: 8
         run: python3 fetch_flow.py
 
       - name: Save activity state (private cache)
