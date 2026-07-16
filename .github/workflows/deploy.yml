@@ -1,0 +1,36 @@
+name: Deploy site (fast — no data fetch)
+
+# Publishes the static site (HTML / nav / already-committed aggregate data) on every
+# push to main, independent of the data worker. This is what makes code/UI changes go
+# live in ~1-2 min instead of waiting behind the slow kubscan/RPC fetches in flow.yml.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: kub-pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      # Defensive: raw per-day address sets never live in the repo (gitignored, cache-only),
+      # so a clean checkout has none — but strip anyway so they can never be published.
+      - name: Strip private files
+        run: rm -rf activity_days activity_state.json __pycache__ ./*.log
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deployment
+        uses: actions/deploy-pages@v4
