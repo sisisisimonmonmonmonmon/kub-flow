@@ -167,6 +167,9 @@
 
   .wk-row td { background: var(--surface-2); font-weight: 700; color: var(--ink); border-bottom: 1px solid var(--line-2); }
   .wk-row .wnet { font-weight: 800; }
+  .subnet { font-size: 10px; font-weight: 500; color: var(--muted); margin-top: 3px; white-space: nowrap; letter-spacing: 0; }
+  .subnet b { font-weight: 700; }
+  .subnet .u { font-weight: 600; opacity: .8; }
   .pill { font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 6px; letter-spacing: 0.02em; }
   .pill.buy  { color: var(--buy);  background: var(--buy-wash); }
   .pill.sell { color: var(--sell); background: var(--sell-wash); }
@@ -457,7 +460,8 @@ function render(d){
         `<td class="tnum neg">${fC(wkSell)}</td><td></td>`+
         `<td class="wnet tnum ${wkNet>=0?'pos':'neg'}">${sc(wkNet)}</td>`+
         `<td class="hide-sm dexcol">${sc(wkDex)}</td>`+
-        `<td class="hide-sm wnet tnum ${wkNetQ>=0?'pos':'neg'}">${wkNetQ>=0?'+':'−'}฿${fC(Math.abs(wkNetQ))}</td>`+
+        `<td class="hide-sm wnet tnum ${wkNetQ>=0?'pos':'neg'}">${wkNetQ>=0?'+':'−'}฿${fC(Math.abs(wkNetQ))}`+
+          `<div class="subnet">Buy <b class="pos">${fC(wkBuy)}</b> · Sell <b class="neg">${fC(wkSell)}</b> <span class="u">KUB</span></div></td>`+
         `<td class="hide-sm muted tnum">${fI.format(wkTr)}</td></tr>`;
       for(const x of byWeek[wk].sort((a,b)=>a.day<b.day?1:-1)){
         const buy = x.net>=0;
