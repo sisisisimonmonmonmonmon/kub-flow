@@ -451,12 +451,14 @@ function render(d){
     for(const wk of weeks){
       const wkObj = w.find(x=>x.week===wk);
       const g = (f)=> wkObj ? wkObj[f] : byWeek[wk].reduce((s,x)=>s+x[f],0);
-      const wkBuy=g("buy"), wkSell=g("sell"), wkNet=g("net");
+      const wkBuy=g("buy"), wkSell=g("sell"), wkNet=g("net"), wkNetQ=g("netQ"), wkDex=g("dexNet"), wkTr=g("trades");
       html += `<tr class="wk-row"><td>Week of ${dayLbl(wk)}</td><td></td>`+
         `<td class="tnum pos">${fC(wkBuy)}</td><td></td>`+
         `<td class="tnum neg">${fC(wkSell)}</td><td></td>`+
         `<td class="wnet tnum ${wkNet>=0?'pos':'neg'}">${sc(wkNet)}</td>`+
-        `<td class="hide-sm"></td><td class="hide-sm"></td><td class="hide-sm"></td></tr>`;
+        `<td class="hide-sm dexcol">${sc(wkDex)}</td>`+
+        `<td class="hide-sm wnet tnum ${wkNetQ>=0?'pos':'neg'}">${wkNetQ>=0?'+':'−'}฿${fC(Math.abs(wkNetQ))}</td>`+
+        `<td class="hide-sm muted tnum">${fI.format(wkTr)}</td></tr>`;
       for(const x of byWeek[wk].sort((a,b)=>a.day<b.day?1:-1)){
         const buy = x.net>=0;
         html += `<tr><td>${dayLbl(x.day)}${x.gap?' <span class="pill gap">≈</span>':''}</td>`+
