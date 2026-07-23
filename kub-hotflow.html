@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>KUB Exchange Flow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: oklch(0.984 0.004 255); --surface: oklch(1 0 0); --surface-2: oklch(0.972 0.004 255);
+    --line: oklch(0.918 0.006 255); --line-2: oklch(0.86 0.008 255);
+    --ink: oklch(0.23 0.014 265); --ink-2: oklch(0.42 0.013 265); --muted: oklch(0.54 0.011 265);
+    /* flow direction — inflow (deposit → sell-side) red, outflow (withdrawal → accumulation) green */
+    --in: oklch(0.53 0.20 27); --in-bar: oklch(0.62 0.22 27); --in-wash: oklch(0.962 0.04 27);
+    --out: oklch(0.50 0.14 156); --out-bar: oklch(0.63 0.16 156); --out-wash: oklch(0.955 0.045 156);
+    --sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --shadow: 0 1px 2px oklch(0.2 0.02 265 / 0.04), 0 4px 16px oklch(0.2 0.02 265 / 0.05);
+    --r: 16px;
+    --z-header: 100;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans);
+    font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  .tnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+  .in { color: var(--in); } .out { color: var(--out); }
+  header { max-width: 1000px; margin: 0 auto; padding: 22px 24px 6px; }
+  header h1 { font-size: 21px; font-weight: 800; letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+  header p { font-size: 12.5px; color: var(--muted); margin: 4px 0 0; }
+  main { max-width: 1000px; margin: 0 auto; padding: 14px 24px 48px; display: flex; flex-direction: column; gap: 16px; }
+
+  /* nav */
+  .pnav { display: inline-flex; gap: 2px; align-items: center; flex-wrap: wrap; margin: 0 0 16px;
+    padding: 3px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 11px; }
+  .pnav a, .pnav .soon { font-size: 13px; font-weight: 600; text-decoration: none; padding: 6px 13px;
+    border-radius: 8px; color: var(--ink-2); white-space: nowrap; transition: background .15s, color .15s; }
+  .pnav a:hover:not(.on) { color: var(--ink); }
+  .pnav a.on { background: var(--surface); color: var(--in); box-shadow: var(--shadow); }
+  .pnav .soon { color: var(--muted); cursor: default; display: inline-flex; align-items: center; gap: 5px; opacity: .8; }
+  .pnav .soon i { font-style: normal; font-size: 9px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .03em; background: var(--line); color: var(--muted); padding: 1px 5px; border-radius: 5px; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); }
+
+  /* lead verdict */
+  .lead { padding: 24px; display: grid; grid-template-columns: 1.15fr 1fr; gap: 28px; align-items: center; }
+  .period { font-size: 12.5px; color: var(--muted); margin-bottom: 10px; }
+  .verdict { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .badge { font-size: 10.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+    padding: 4px 9px; border-radius: 7px; }
+  .verdict.inflow .badge { color: var(--in); background: var(--in-wash); }
+  .verdict.outflow .badge { color: var(--out); background: var(--out-wash); }
+  .word { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
+  .verdict.inflow .word { color: var(--in); } .verdict.outflow .word { color: var(--out); }
+  .big { font-size: clamp(34px, 6vw, 52px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.02; margin: 6px 0 2px; }
+  .big .u { font-size: 0.42em; font-weight: 700; color: var(--muted); letter-spacing: 0; }
+  .thb { font-size: 14px; color: var(--ink-2); }
+  .lead .expl { font-size: 12.5px; color: var(--muted); margin-top: 14px; max-width: 46ch; text-wrap: pretty; }
+
+  .balance .cap { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+  .balance .cap .i { color: var(--in); } .balance .cap .o { color: var(--out); }
+  .meter { height: 40px; border-radius: 10px; overflow: hidden; display: flex; background: var(--out-bar); }
+  .meter .fill { background: var(--in-bar); display: flex; align-items: center; padding: 0 12px; color: #fff;
+    font-size: 12.5px; font-weight: 700; transition: width 1s cubic-bezier(.22,1,.36,1); white-space: nowrap; }
+  .balance .foot { font-size: 12px; color: var(--ink-2); margin-top: 10px; }
+
+  /* stat strip */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .stat { padding: 15px 18px; }
+  .stat .k { font-size: 11.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .02em; }
+  .stat .v { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; margin-top: 5px; }
+  .stat .x { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+
+  section .head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 20px 22px 0; }
+  section .head h2 { font-size: 15px; font-weight: 700; margin: 0; letter-spacing: -0.015em; }
+  section .head .sub { font-size: 12px; color: var(--muted); }
+  .chartbox { padding: 14px 18px 18px; overflow-x: auto; }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; padding: 0 22px 18px; font-size: 12px; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+  .empty { padding: 40px; text-align: center; color: var(--muted); font-size: 13px; }
+
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  thead th { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .03em;
+    text-align: right; padding: 12px 16px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); }
+  thead th:first-child { text-align: left; }
+  tbody td { padding: 10px 16px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  tbody td:first-child { text-align: left; font-weight: 500; }
+  tbody tr:hover td { background: var(--surface-2); }
+  .tblwrap { max-height: 460px; overflow-y: auto; border-radius: 0 0 var(--r) var(--r); }
+  .mut { color: var(--muted); }
+  footer { max-width: 1000px; margin: 0 auto; padding: 4px 24px 40px; font-size: 11.5px; color: var(--muted); line-height: 1.7; }
+  footer b { color: var(--ink-2); }
+  @media (max-width: 720px) { .lead { grid-template-columns: 1fr; gap: 20px; } .hide-sm { display: none; } }
+  @media (prefers-reduced-motion: reduce) { .meter .fill { transition: none; } * { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+  <header>
+    <nav class="pnav">
+      <a href="index.html">Flow</a>
+      <a href="kub-holders-daily.html">EOA Holders</a>
+      <a href="kub-activity.html">Active Wallets</a>
+      <a href="kub-hotflow.html" class="on">Exchange Flow</a>
+      <span class="soon">TVL<i>soon</i></span>
+    </nav>
+    <h1>KUB Exchange Flow</h1>
+    <p id="meta">Native KUB moving in / out of Bitkub Exchange wallets · on-chain</p>
+  </header>
+
+  <main>
+    <div class="card lead" id="lead">
+      <div>
+        <div class="period" id="period">—</div>
+        <div class="verdict outflow" id="verdict"><span class="badge" id="vBadge">—</span><span class="word" id="vWord">Loading…</span></div>
+        <div class="big tnum"><span id="vNet">—</span> <span class="u">KUB</span></div>
+        <div class="thb tnum" id="vThb">—</div>
+        <div class="expl" id="vExpl"></div>
+      </div>
+      <div class="balance">
+        <div class="cap"><span class="i">Inflow · deposits</span><span class="o">Outflow · withdrawals</span></div>
+        <div class="meter"><div class="fill" id="meterFill" style="width:50%"><span id="meterLbl"></span></div></div>
+        <div class="foot" id="balFoot">—</div>
+      </div>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <section class="card">
+      <div class="head"><h2>Daily Net Flow</h2><span class="sub" id="chartSub">—</span></div>
+      <div class="chartbox" id="chart"><div class="empty">Loading…</div></div>
+      <div class="legend">
+        <span><i style="background:var(--in-bar)"></i>Net inflow (KUB onto exchange)</span>
+        <span><i style="background:var(--out-bar)"></i>Net outflow (KUB off exchange)</span>
+        <span class="mut">Rightmost = latest</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="head"><h2>Daily Breakdown</h2><span class="sub" id="tblSub">—</span></div>
+      <div class="tblwrap">
+        <table>
+          <thead><tr><th>Day</th><th>Inflow</th><th>Outflow</th><th>Net (KUB)</th><th class="hide-sm">Net (฿)</th><th class="hide-sm">Tx</th></tr></thead>
+          <tbody id="tbody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer id="note">
+      <b>Method:</b> daily on-chain scan of native-KUB transfers to/from the known <b>Bitkub Exchange</b> wallets (hot + cold).
+      <b>Inflow</b> = KUB deposited onto the exchange (often precedes selling); <b>Outflow</b> = KUB withdrawn to self-custody (accumulation).
+      Transfers between exchange wallets are excluded. Baht value uses the current KUB price. Direct transfers only — for analysis, not investment advice.
+    </footer>
+  </main>
+
+<script src="hotflow_data.js"></script>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const fA = new Intl.NumberFormat("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+function fC(v){ if(v==null||!isFinite(v))return "—"; const s=v<0?"−":"",a=Math.abs(v);
+  if(a>=1e9)return s+(a/1e9).toFixed(2)+"B"; if(a>=1e6)return s+(a/1e6).toFixed(2)+"M";
+  if(a>=1e3)return s+(a/1e3).toFixed(1)+"K"; return s+fA.format(a); }
+const sc=(v)=>(v>0?"+":v<0?"−":"")+fC(Math.abs(v));
+const sThb=(v)=>(v>0?"+":v<0?"−":"")+"฿"+fC(Math.abs(v));
+const dayLbl=(dk)=>{ const [,m,d]=dk.split("-"); const mo=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; return mo[+m-1]+" "+(+d); };
+const relTime=(ms)=>{ if(!ms)return "—"; const s=Math.round((Date.now()-ms)/1000); if(s<60)return s+"s ago"; if(s<3600)return Math.round(s/60)+"m ago"; if(s<86400)return Math.round(s/3600)+"h ago"; return Math.round(s/86400)+"d ago"; };
+
+const DATA = window.HOTFLOW || { daily: [], wallets: 0, updatedAt: 0, today: "" };
+let PRICE = null;
+
+async function kubPrice(){
+  try{ const r = await fetch("https://api.bitkub.com/api/v3/market/ticker?sym=KUB_THB", {cache:"no-store"});
+    if(r.ok){ const j = await r.json(); const t = Array.isArray(j)? j[0] : (j.KUB_THB||j.result); const p = t && (t.last||t.close); if(p) return +p; } }
+  catch(e){}
+  return null;
+}
+
+function svgDiverge(rows){
+  if(!rows.length) return `<div class="empty">Collecting…</div>`;
+  const n=rows.length, slot=Math.max(20, Math.min(52, 760/n)), W=Math.max(n*slot,320), H=220, padT=18, padB=30, mid=padT+(H-padT-padB)/2;
+  const maxAbs=Math.max(1,...rows.map(d=>Math.abs(d.net))), scy=(H-padT-padB)/2, bw=Math.min(22, slot*0.6);
+  let bars="",labels="";
+  rows.forEach((d,i)=>{ const x=(i+0.5)*(W/n); const h=(Math.abs(d.net)/maxAbs)*scy; const inflow=d.net>=0;
+    const y=inflow? mid-h : mid; const fill=inflow?"var(--in-bar)":"var(--out-bar)"; const op=d.cur?1:0.82;
+    bars+=`<rect x="${(x-bw/2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(2,h).toFixed(1)}" rx="3" fill="${fill}" opacity="${op}"><title>${d.label}: net ${sc(d.net)} KUB (in ${fC(d.inflow)} · out ${fC(d.outflow)})</title></rect>`;
+    if(d.cur) bars+=`<rect x="${(x-bw/2-3).toFixed(1)}" y="${padT-6}" width="${(bw+6).toFixed(1)}" height="${H-padB-padT+8}" rx="6" fill="none" stroke="var(--line-2)" stroke-dasharray="3 3"/>`;
+    if(n<=32 || i%2===0) labels+=`<text x="${x.toFixed(1)}" y="${H-9}" fill="${d.cur?'var(--ink-2)':'var(--muted)'}" font-size="10" font-weight="${d.cur?700:500}" text-anchor="middle">${dayLbl(d.day)}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg"><line x1="0" y1="${mid}" x2="${W}" y2="${mid}" stroke="var(--line-2)"/>${bars}${labels}</svg>`;
+}
+
+function render(){
+  const daily = DATA.daily || [];
+  $("meta").textContent = `Native KUB in / out of ${DATA.wallets||0} Bitkub Exchange wallets · updated ${relTime(DATA.updatedAt)}`;
+  if(!daily.length){ $("vWord").textContent="No data yet"; $("chart").innerHTML=`<div class="empty">Waiting for first scan…</div>`;
+    $("tbody").innerHTML=`<tr><td colspan="6" class="empty">No data yet</td></tr>`; return; }
+
+  const last7 = daily.slice(-7);
+  const inflow7 = last7.reduce((s,d)=>s+d.inflow,0), outflow7 = last7.reduce((s,d)=>s+d.outflow,0);
+  const net7 = inflow7 - outflow7;                 // >0 net inflow (deposits), <0 net outflow (withdrawals)
+  const isIn = net7 >= 0;
+
+  // ---- lead verdict ----
+  const v=$("verdict"); v.className = "verdict "+(isIn?"inflow":"outflow");
+  $("vBadge").textContent = isIn ? "Net deposits" : "Net withdrawals";
+  $("vWord").textContent = isIn ? "Flowing onto exchange" : "Leaving the exchange";
+  $("period").innerHTML = `Last 7 days · to <b>${dayLbl(daily[daily.length-1].day)}</b>`;
+  $("vNet").textContent = sc(net7);
+  $("vNet").className = isIn ? "in" : "out";
+  $("vThb").innerHTML = PRICE ? `≈ <span class="${isIn?'in':'out'}">${sThb(net7*PRICE)}</span> at ฿${PRICE.toLocaleString()}/KUB` : `<span class="mut">฿ value loading…</span>`;
+  $("vExpl").textContent = isIn
+    ? "More KUB moved onto the exchange than left — deposits like this often precede selling."
+    : "More KUB left the exchange than arrived — withdrawals to self-custody typically signal accumulation.";
+
+  // ---- balance meter (share of gross flow) ----
+  const gross = inflow7 + outflow7;
+  const inPct = gross>0 ? inflow7/gross*100 : 50;
+  $("meterFill").style.width = inPct.toFixed(1)+"%";
+  $("meterLbl").textContent = inPct>=14 ? Math.round(inPct)+"% in" : "";
+  $("balFoot").innerHTML = `In <b class="in">${fC(inflow7)}</b> · Out <b class="out">${fC(outflow7)}</b> KUB over 7 days — ${isIn?`inflow leads ${Math.round(inPct)}%`:`outflow leads ${Math.round(100-inPct)}%`}`;
+
+  // ---- stat strip ----
+  const today = daily[daily.length-1];
+  const totIn = daily.reduce((s,d)=>s+d.inflow,0), totOut = daily.reduce((s,d)=>s+d.outflow,0);
+  const cell=(k,val,cls,x)=>`<div class="card stat"><div class="k">${k}</div><div class="v tnum ${cls||''}">${val}</div><div class="x">${x||''}</div></div>`;
+  $("stats").innerHTML =
+    cell("Today net", sc(today.net)+" KUB", today.net>=0?'in':'out', `${today.inTx} in · ${today.outTx} out tx`)+
+    cell("7-day net", sc(net7)+" KUB", isIn?'in':'out', PRICE?`≈ ${sThb(net7*PRICE)}`:'')+
+    cell("Inflow · 7d", fC(inflow7)+" KUB", 'in', 'deposits onto exchange')+
+    cell("Outflow · 7d", fC(outflow7)+" KUB", 'out', 'withdrawals off exchange');
+
+  // ---- chart (last 30 days) ----
+  const win = daily.slice(-30).map((d,i,a)=>({...d, cur: i===a.length-1}));
+  $("chartSub").textContent = `${win.length} days`;
+  $("chart").innerHTML = svgDiverge(win);
+
+  // ---- table (newest first) ----
+  $("tblSub").textContent = `${daily.length} days`;
+  $("tbody").innerHTML = daily.slice().reverse().map(d=>{
+    const netQ = PRICE ? d.net*PRICE : null;
+    return `<tr><td>${dayLbl(d.day)}</td>`+
+      `<td class="in tnum">${fC(d.inflow)}</td>`+
+      `<td class="out tnum">${fC(d.outflow)}</td>`+
+      `<td class="tnum ${d.net>=0?'in':'out'}" style="font-weight:700">${sc(d.net)}</td>`+
+      `<td class="hide-sm tnum ${d.net>=0?'in':'out'}">${netQ!=null?sThb(netQ):'<span class="mut">—</span>'}</td>`+
+      `<td class="hide-sm mut tnum">${d.inTx+d.outTx}</td></tr>`;
+  }).join("");
+}
+
+render();
+kubPrice().then(p=>{ if(p){ PRICE=p; render(); } });
+</script>
+</body>
+</html>

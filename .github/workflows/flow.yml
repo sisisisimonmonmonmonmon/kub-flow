@@ -62,6 +62,11 @@ jobs:
         timeout-minutes: 8
         run: python3 fetch_flow.py
 
+      - name: Exchange flow — daily native-KUB in/out of Bitkub Exchange wallets
+        continue-on-error: true
+        timeout-minutes: 12
+        run: python3 fetch_hotflow.py
+
       - name: Save activity state (private cache)
         if: always()
         uses: actions/cache/save@v4
@@ -77,7 +82,8 @@ jobs:
           git config user.email "actions@github.com"
           git add flow_data.js flow_state.json \
                   daily_summary.csv daily_data.js KUB_Holders_Daily.xlsx \
-                  activity_data.js
+                  activity_data.js \
+                  hotflow_data.js hotflow_state.json
           if git diff --cached --quiet; then
             echo "no change today"
           else
