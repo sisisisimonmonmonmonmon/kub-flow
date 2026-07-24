@@ -32,6 +32,9 @@ MAX_PAGES = int(os.environ.get("HOTFLOW_MAX_PAGES", "50"))
 RESOLVE_MIN = 300        # resolve a counterparty's tag only when a single transfer is >= this (KUB)
 AUTOCHECK_MIN = 50000    # for a big untagged counterparty, deep-check if it's a Bitkub-internal wallet
 REVIEW_MIN = 20000       # log untagged "external" counterparties above this for curation review
+# Conservative cap: any single transfer >= this is treated as institutional / OTC / internal
+# (not organic retail flow) and excluded. Keeps the metric to genuine user deposits/withdrawals.
+BIG_TXN_CAP = 20000
 
 # Known Bitkub Exchange wallets (hot + cold), lower-cased.
 EXCH = frozenset(a.lower() for a in [
@@ -137,8 +140,8 @@ def scan_wallet(addr, wlast, days, tags, autoint, review, horizon):
             if (t.get("result") or t.get("status")) not in ("success", "ok", None):
                 continue                               # skip reverted/failed txns
             v = int(t.get("value") or 0) / 1e18
-            if v <= 0:
-                continue
+            if v <= 0 or v >= BIG_TXN_CAP:
+                continue                              # skip zero + large institutional/internal chunks
             frm = ((t.get("from") or {}).get("hash") or "").lower()
             to = ((t.get("to") or {}).get("hash") or "").lower()
             if frm == addr:

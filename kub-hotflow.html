@@ -151,7 +151,8 @@
       <b>Method:</b> daily on-chain scan of native-KUB transfers between the <b>Bitkub Exchange</b> wallets and external addresses.
       <b>Inflow</b> = deposits onto the exchange (often precede selling); <b>Outflow</b> = withdrawals to self-custody (accumulation).
       Transfers with other Bitkub wallets — hot/cold rebalancing, kubscan-tagged Bitkub addresses, and known operational/treasury wallets —
-      are excluded, so only genuine external flow is counted. Baht uses the current KUB price. Direct native transfers only — for analysis, not investment advice.
+      are excluded. Large single transfers (≥ 20K KUB ≈ ฿460K) are also excluded as institutional / OTC, so this reflects <b>organic retail flow</b>,
+      not treasury or block moves. Baht uses the current KUB price. Direct native transfers only — for analysis, not investment advice.
     </footer>
   </main>
 
@@ -194,7 +195,7 @@ function svgDiverge(rows){
 
 function render(){
   const daily = DATA.daily || [];
-  $("meta").textContent = `Native KUB in / out of ${DATA.wallets||0} Bitkub Exchange wallets · updated ${relTime(DATA.updatedAt)}`;
+  $("meta").textContent = `Organic retail KUB flow · ${DATA.wallets||0} Bitkub Exchange wallets · excl. internal + ≥20K chunks · updated ${relTime(DATA.updatedAt)}`;
   if(!daily.length){ $("vWord").textContent="No data yet"; $("chart").innerHTML=`<div class="empty">Waiting for first scan…</div>`;
     $("tbody").innerHTML=`<tr><td colspan="6" class="empty">No data yet</td></tr>`; return; }
 
