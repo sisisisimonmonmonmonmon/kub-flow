@@ -267,11 +267,16 @@ def main():
         snapshot_depth(state)
     except Exception as e:
         print("depth snapshot failed:", e, flush=True)
-    try:
-        latest = int(rpc("eth_blockNumber", []), 16)
-        ingest_dex(state, latest)
-    except Exception as e:
-        print("dex scan failed:", e, flush=True)
+    # FLOW_CEX_ONLY=1 (intraday worker, every ~3h) skips the on-chain DEX scan — CEX
+    # trades scroll out of Bitkub's 1000-row API in ~4.4h at high volume, so CEX must
+    # be polled often, while the full-chain DEX scan stays on the once-daily worker.
+    # build_js still emits the DEX fields from the last full run (dexDays persists).
+    if not os.environ.get("FLOW_CEX_ONLY"):
+        try:
+            latest = int(rpc("eth_blockNumber", []), 16)
+            ingest_dex(state, latest)
+        except Exception as e:
+            print("dex scan failed:", e, flush=True)
     cutoff = (datetime.now(timezone.utc) + timedelta(hours=7) - timedelta(days=KEEP_DAYS)).strftime("%Y-%m-%d")
     for key in ("days", "depthDays", "dexDays"):
         m = state.get(key, {})

@@ -1,0 +1,69 @@
+name: KUB CEX intraday (every 3h)
+
+# Bitkub's trades API returns only the last 1000 rows (~4.4h at high volume), so CEX
+# must be polled often or high-volume days end up incomplete (GAP). This runs the
+# CEX-net + order-book-depth part of fetch_flow.py every 3 hours (FLOW_CEX_ONLY skips
+# the DEX scan — that stays on the once-daily worker). Shares the 'kub-flow'
+# concurrency group so it never races the daily worker's commit.
+on:
+  schedule:
+    - cron: "0 */3 * * *"     # every 3 hours (UTC)
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: kub-flow
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: CEX net + order-book depth (intraday, no DEX)
+        continue-on-error: true
+        timeout-minutes: 6
+        env:
+          FLOW_CEX_ONLY: "1"
+        run: python3 fetch_flow.py
+
+      - name: Commit fresh CEX data
+        run: |
+          git config user.name  "kub-flow-bot"
+          git config user.email "actions@github.com"
+          git add flow_data.js flow_state.json
+          if git diff --cached --quiet; then
+            echo "no change"
+          else
+            git commit -m "cex: $(date -u +%FT%H:%MZ)"
+            for i in 1 2 3; do
+              git pull --rebase --autostash origin main && git push && break
+              echo "push retry $i"; sleep 5
+            done
+          fi
+
+      - name: Strip private files (defensive)
+        run: rm -rf activity_days activity_state.json __pycache__ ./*.log
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+  deploy:
+    needs: run
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
